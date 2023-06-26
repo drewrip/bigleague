@@ -1,18 +1,25 @@
-extern crate toml;
-extern crate reqwest;
-#[macro_use] extern crate rocket;
-
-use rocket::State;
-use rocket_db_pools::{sqlx, Database, Connection};
-use rocket_dyn_templates::{Template, context};
+use reqwest;
+use tera::{Tera, Context};
 use serde::{Serialize, Deserialize};
 use serde_json::{Result, Value};
 use std::collections::HashMap;
-use postgres::{Client, NoTls, Error};
+use warp::{http::StatusCode, Filter, reject, Reply, Rejection};
+use std::sync::Arc;
+use mobc::{Connection, Pool};
+use mobc_postgres::{tokio_postgres, PgConnectionManager};
+use tokio_postgres::{Config, Error, NoTls};
+use std::fs;
+use std::str::FromStr;
+use std::time::Duration;
+use std::convert::Infallible;
+use std::future::Future;
 
-#[derive(Database)]
-#[database("bigleague")]
-struct BigLeague(sqlx::PostgresPool);
+const DB_POOL_MAX_OPEN: u64 = 32;
+const DB_POOL_MAX_IDLE: u64 = 8;
+const DB_POOL_TIMEOUT_SECONDS: u64 = 15;
+
+type DBCon = Connection<PgConnectionManager<NoTls>>;
+type DBPool = Pool<PgConnectionManager<NoTls>>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Standings {
@@ -40,21 +47,24 @@ pub struct User {
     avatar: String,
 }
 
-fn create_tables(client: &mut Client) {
+
+async fn create_tables(db_pool: &DBPool) -> Result<()>{
+
+    let con = get_db_con(db_pool).await;
 
     // Create table for the leagues that the users are in
-    client.batch_execute(
+    con.batch_execute(
         "
         CREATE TABLE IF NOT EXISTS leagues (
             id varchar(64) PRIMARY KEY,
             name varchar(64) NOT NULL,
-            avatar varchar(64),
+            avatar varchar(64)
         ) 
         "
-    ).unwrap();
+    ).await.unwrap();
 
     // Create table for users in the big league
-    client.batch_execute(
+    con.batch_execute(
         "
         CREATE TABLE IF NOT EXISTS users (
             id varchar(64) PRIMARY KEY,
@@ -69,11 +79,12 @@ fn create_tables(client: &mut Client) {
             avatar varchar(64)
         )
         "
-    ).unwrap();
+    ).await.unwrap();
 
+    Ok(())
     // Players later?
 }
-
+/*
 fn fetch_rosters(id: &str, client: &mut Client) -> Result<()> {
     let body = reqwest::blocking::get(format!("https://api.sleeper.app/v1/league/{}/rosters", id)).unwrap().text().unwrap();
     let roster_list: Vec<Value> = serde_json::from_str(&body)?;
@@ -135,52 +146,115 @@ fn fetch_leagues(id: &str, client: &mut Client) -> Result<()> {
 
     Ok(())
 }
+*/
 
-#[get("/league/<id>")]
-fn league(mut db: Connection<BigLeague>, id: &str) -> Template 
-    let row = sqlx::query("SELECT id, name, avatar FROM leagues WHERE id = ?").bind(id)
-        .fetch_one(&mut *db).await.unwrap();
-    
+// GET /league/<id>
+async fn league(id: i64, db_pool: DBPool, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> { 
+    let db = get_db_con(&db_pool)
+            .await;
+
+    let idstr = id.to_string();
+    let rows = db.query("SELECT * FROM leagues WHERE id = $1", &[&idstr])
+            .await
+            .unwrap();
+
     let league = League {
-        id: row.try_get(0).unwrap(),
-        name: row.try_get(1).unwrap(),
-        avatar: row.try_get(2).unwrap(),
+        id: rows[0].get(0),
+        name: rows[0].get(1),
+        avatar: rows[0].get(2),
     };
-
-    Template::render("league", league)
+   let mut ctx = Context::new();
+   ctx.insert("league", &league);
+   Ok(render("league.html", ctx, tera)) 
 }
 
-#[get("/user/<id>")]
 fn user(id: &str) -> String {
-    format!("Getting user {}...", id)
+    "user".to_string()
 }
 
-#[get("/")]
-fn standings() -> Template {
-    let mut ctx: Standings = Standings {
-        users: vec![],
-    };
-
-    Template::render("standings", ctx)
+fn standings() -> String {
+    "standings".to_string()
 }
 
-#[launch]
-fn rocket() -> _ {
+pub fn create_pool() -> std::result::Result<DBPool, mobc::Error<Error>> {
+    let config = Config::from_str("host=0.0.0.0 user=admin password=password dbname=test")?;
+
+    let manager = PgConnectionManager::new(config, NoTls);
+    Ok(Pool::builder()
+            .max_open(DB_POOL_MAX_OPEN)
+            .max_idle(DB_POOL_MAX_IDLE)
+            .get_timeout(Some(Duration::from_secs(DB_POOL_TIMEOUT_SECONDS)))
+            .build(manager))
+}
+
+pub async fn get_db_con(db_pool: &DBPool) -> DBCon {
+    db_pool.get().await.unwrap()
+}
+
+fn with_db(db_pool: DBPool) -> impl Filter<Extract = (DBPool,), Error = Infallible> + Clone {
+    warp::any().map(move || db_pool.clone())
+}
+
+fn with_tera(tera: Arc<Tera>) -> impl Filter<Extract = (Arc<Tera>,), Error = Infallible> + Clone {
+    warp::any().map(move || tera.clone())
+}
+
+pub async fn health_handler(db_pool: DBPool) -> std::result::Result<impl Reply, Rejection> {
+    let db = get_db_con(&db_pool)
+            .await;
+
+    db.execute("SELECT 1", &[])
+            .await
+            .unwrap();
+    Ok(StatusCode::OK)
+}
+
+fn render(template: &str, ctx: Context, tera: Arc<Tera>) -> impl Reply {
+    let render = tera.render(template, &ctx).unwrap();
+    warp::reply::html(render)
+}
+
+#[tokio::main]
+async fn main() {
     
-    let mut client = Client::connect("host=0.0.0.0 user=admin password=password dbname=test", NoTls).unwrap();
-    
+    //let mut client = Client::connect("host=0.0.0.0 user=admin password=password dbname=test", NoTls).unwrap();
+ /*   
     for row in client.query("SELECT name, age FROM names", &[]).unwrap(){
         let name: &str = row.get(0);
         let age: i32 = row.get(1);
         println!("Name: {:?}, Age: {:?}", name, age);
     }
+*/
+    //create_tables(&mut client);
 
-    create_tables(&mut client);
+    //fetch_rosters("940868057520549888", &mut client);
 
-    fetch_rosters("940868057520549888", &mut client);
+    let pool = create_pool().unwrap();
+   
+    create_tables(&pool).await.unwrap();
 
-    rocket::build()
-        .attach(BigLeague::init())
-        .mount("/", routes![league, user, standings])
-        .attach(Template::fairing())
+    let mut tera: Tera = Tera::new("templates/**/*").unwrap();
+    let tera: Arc<Tera> = Arc::new(tera);
+
+    let health_route = warp::path!("health")
+        .and(with_db(pool.clone()))
+        .and_then(health_handler);
+
+    let league_route = warp::path!("league" / i64)
+        .and(with_db(pool.clone()))
+        .and(with_tera(tera.clone()))
+        .and_then(league);
+
+    let user_route = warp::path!("user" / u64).map(|id| format!("showing user {}", id));
+    let standings_route = warp::path::end().map(|| "Look at all those standings!");
+
+    let routes = warp::get().and(
+        health_route
+            .or(league_route)
+            .or(user_route)
+            .or(standings_route) 
+            .with(warp::cors().allow_any_origin())
+    );
+
+    warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
 }
