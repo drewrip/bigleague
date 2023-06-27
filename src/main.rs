@@ -1,18 +1,15 @@
 use reqwest;
 use tera::{Tera, Context};
 use serde::{Serialize, Deserialize};
-use serde_json::{Result, Value};
-use std::collections::HashMap;
-use warp::{http::StatusCode, Filter, reject, Reply, Rejection};
+use serde_json::Result;
+use warp::{http::StatusCode, Filter, Reply, Rejection};
 use std::sync::Arc;
 use mobc::{Connection, Pool};
 use mobc_postgres::{tokio_postgres, PgConnectionManager};
 use tokio_postgres::{Config, Error, NoTls};
-use std::fs;
 use std::str::FromStr;
 use std::time::Duration;
 use std::convert::Infallible;
-use std::future::Future;
 
 const DB_POOL_MAX_OPEN: u64 = 32;
 const DB_POOL_MAX_IDLE: u64 = 8;
