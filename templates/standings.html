@@ -1,7 +1,7 @@
 <html>
     <ul>
-        {% for user in users -%}
-        <li><p>{{ user }}</p></li>
+        {% for user in standings.users -%}
+        <li><p>{{ user.id }}</p></li>
         {%- endfor %}
     </ul>
 </html>
