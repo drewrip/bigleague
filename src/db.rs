@@ -17,8 +17,9 @@ pub type DBPool = Pool<PgConnectionManager<NoTls>>;
 
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Standings {
-    pub users: Vec<User>,
+pub struct Standing {
+    pub user: User,
+    pub roster: Roster,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -29,8 +30,9 @@ pub struct League {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct User {
-    pub id: String,
+pub struct Roster {
+    pub user_id: String,
+    pub league_id: String,
     pub wins: i32,
     pub losses: i32,
     pub ties: i32,
@@ -38,10 +40,14 @@ pub struct User {
     pub fpts_decimal: i32,
     pub fpts_against: i32,
     pub fpts_against_decimal: i32,
-    pub league: String,
-    pub avatar: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct User {
+    pub id: String,
+    pub name: String,
+    pub avatar: String,
+}
 
 pub async fn get_db_con(db_pool: &DBPool) -> DBCon {
     db_pool.get().await.unwrap()
@@ -77,20 +83,30 @@ pub async fn create_tables(db_pool: &DBPool) -> Result<()>{
         "
     ).await.unwrap();
 
-    // Create table for users in the big league
+
     con.batch_execute(
         "
         CREATE TABLE IF NOT EXISTS users (
             id varchar(64) PRIMARY KEY,
+            name varchar(64) NOT NULL,
+            avatar varchar(64)
+        )
+        "
+    ).await.unwrap();
+    
+    // Create table for users in the big league
+    con.batch_execute(
+        "
+        CREATE TABLE IF NOT EXISTS rosters (
+            user_id varchar(64) PRIMARY KEY,
+            league_id varchar(64) REFERENCES leagues(id),
             wins integer NOT NULL,
             losses integer NOT NULL,
             ties integer NOT NULL,
             fpts integer NOT NULL,
             fpts_decimal integer NOT NULL,
             fpts_against integer NOT NULL,
-            fpts_against_decimal integer NOT NULL,
-            league varchar(64) REFERENCES leagues(id),
-            avatar varchar(64)
+            fpts_against_decimal integer NOT NULL
         )
         "
     ).await.unwrap();

@@ -1,6 +1,5 @@
-use tera::{Tera, Context};
-use serde::{Serialize, Deserialize};
-use warp::{http::StatusCode, Filter, Reply, Rejection};
+use tera::Tera;
+use warp::Filter;
 use std::sync::Arc;
 use std::convert::Infallible;
 
@@ -14,9 +13,12 @@ fn with_tera(tera: Arc<Tera>) -> impl Filter<Extract = (Arc<Tera>,), Error = Inf
 
 #[tokio::main]
 async fn main() {
-    let league_ids = vec!["940868057520549888".to_string()];
+    let league_ids = vec![
+        "853520029218607104".to_string(),
+        "958098050679967744".to_string(),
+        "871112580960231424".to_string(),
+    ];
 
-    //fetch_rosters("940868057520549888", &mut client);
     let pool = db::create_pool().unwrap();
    
     db::create_tables(&pool).await.unwrap();
@@ -24,6 +26,8 @@ async fn main() {
     for lid in league_ids {
         stats::fetch_leagues(lid.clone(), &pool).await.unwrap();
         stats::fetch_rosters(lid.clone(), &pool).await.unwrap();
+        // This requires making a lot of requests!
+        //stats::fetch_users(&pool).await.unwrap();
     }
 
     let mut tera: Tera = Tera::new("templates/**/*").unwrap();
@@ -52,11 +56,15 @@ async fn main() {
         .and(with_tera(tera.clone()))
         .and_then(handlers::not_found_handler);
 
+    let static_route = warp::path("static")
+        .and(warp::fs::dir("static"));
+
     let routes = warp::get().and(
         health_route
             .or(league_route)
             .or(user_route)
             .or(standings_route)
+            .or(static_route)
             .or(not_found_route)
             .with(warp::cors().allow_any_origin())
     );
