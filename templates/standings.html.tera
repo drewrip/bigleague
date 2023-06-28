@@ -1,8 +1,0 @@
-<html>
-
-    <ul>
-        {% for user in users -%}
-        <li><p>{{ user }}</p></li>
-        {%- endfor %}
-    </ul>
-</html>

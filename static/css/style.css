@@ -1,0 +1,13 @@
+.center {
+    justify-content: center;
+}
+
+.avatar {
+    width: 4em;
+    height: 4em;
+    border-radius: 4em;
+}
+
+#league-title {
+    text-align: center;
+}

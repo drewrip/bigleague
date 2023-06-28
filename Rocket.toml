@@ -1,5 +1,0 @@
-[default.databases.db_name]
-host = "0.0.0.0"
-dbname = "test"
-user = "admin"
-password = "password"
