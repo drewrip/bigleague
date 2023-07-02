@@ -17,7 +17,7 @@
                 {% for s in standings -%}
                 <tr>
                     <td>{{ s.rank }}</td>
-                    <td><img src="https://sleepercdn.com/avatars/{{ s.user.avatar }}" /></td>
+                    <td><img class="standing-avatar" src="https://sleepercdn.com/avatars/{{ s.user.avatar }}" /></td>
                     <td><a href="/user/{{ s.user.id }}">{{ s.user.name }}</a></td>
                     <td>{{ s.roster.wins }}</td>
                     <td>{{ s.roster.losses }}</td>
