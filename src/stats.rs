@@ -3,8 +3,6 @@ use serde_json::Value;
 use crate::db;
 use std::convert::Infallible;
 
-// fetch ...
-
 pub async fn fetch_rosters(id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
 
     let con = db::get_db_con(db_pool).await;
@@ -45,6 +43,58 @@ pub async fn fetch_rosters(id: String, db_pool: &db::DBPool) -> Result<(), Infal
                 &i32::try_from(r["settings"]["fpts_against_decimal"].as_u64().unwrap_or(0)).unwrap(), 
             ]
         ).await.unwrap();
+
+        let players: Vec<String> = r["players"]
+            .as_array()
+            .unwrap()
+            .into_iter()
+            .map(|p| p.as_str().unwrap().to_string())
+            .collect();
+
+        let starters: Vec<String> = r["starters"]
+            .as_array()
+            .unwrap()
+            .into_iter()
+            .map(|p| p.as_str().unwrap().to_string())
+            .collect();
+
+        // Add all their players first
+        for p in players {
+            con.execute(
+                "
+                INSERT INTO ownership VALUES ($1, $2, $3, $4)
+                ON CONFLICT(user_id, league_id, player_id) DO UPDATE SET
+                    user_id = EXCLUDED.user_id,
+                    league_id = EXCLUDED.league_id,
+                    player_id = EXCLUDED.player_id,
+                    starter = EXCLUDED.starter
+                ",
+                &[
+                    &r["owner_id"].as_str().unwrap(),
+                    &r["league_id"].as_str().unwrap(),
+                    &p,
+                    &0i32,
+                ]
+            ).await.unwrap();
+        }
+
+        // Now update the players for which are starters
+        for s in starters {
+            con.execute(
+                "
+                UPDATE ownership
+                SET starter = 1
+                WHERE user_id = $1 AND
+                league_id = $2 AND
+                player_id = $3
+                ",
+                &[
+                    &r["owner_id"].as_str().unwrap(),
+                    &r["league_id"].as_str().unwrap(),
+                    &s,
+                ]
+            ).await.unwrap();
+        }
     }
 
     Ok(())
@@ -80,7 +130,7 @@ pub async fn fetch_leagues(id: String, db_pool: &db::DBPool) -> Result<(), Infal
     Ok(())
 }
 
-pub async fn fetch_users(db_pool: &db::DBPool) -> Result<(), Infallible> {
+pub async fn fetch_users(id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
     
     let con = db::get_db_con(db_pool).await;
 
@@ -90,17 +140,15 @@ pub async fn fetch_users(db_pool: &db::DBPool) -> Result<(), Infallible> {
         .map(|row| row.get(0))
         .collect();
 
-    for user_id in user_ids {
+    let body = reqwest::get(format!("https://api.sleeper.app/v1/league/{}/users", id))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
 
-        let body = reqwest::get(format!("https://api.sleeper.app/v1/user/{}", user_id))
-            .await
-            .unwrap()
-            .text()
-            .await
-            .unwrap();
-
-        let user: Value = serde_json::from_str(&body).unwrap();
-
+    let users: Vec<Value> = serde_json::from_str(&body).unwrap();
+    for user in users {
         con.execute(
             "
             INSERT INTO users VALUES ($1, $2, $3)
@@ -116,5 +164,50 @@ pub async fn fetch_users(db_pool: &db::DBPool) -> Result<(), Infallible> {
             ]
         ).await.unwrap();
     }
+    Ok(())
+}
+
+// Be careful with fetch players!
+// The underlying call to Sleeper's API is expensive and
+// according to their docs, we shouldn't call this more
+// than once a day
+pub async fn fetch_players(db_pool: &db::DBPool) -> Result<(), Infallible> {
+    
+    let con = db::get_db_con(db_pool).await;
+
+    let body = reqwest::get("https://api.sleeper.app/v1/players/nfl")
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    
+    //let body = std::fs::read_to_string("players.json").expect("couldn't read temp players.json file");
+    let players: Value = serde_json::from_str(&body).unwrap();
+
+    for (player_id, player_data) in players.as_object().unwrap() {
+        con.execute(
+            "
+            INSERT INTO players VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT(id) DO UPDATE SET
+                id = EXCLUDED.id,
+                first_name = EXCLUDED.first_name,
+                last_name = EXCLUDED.last_name,
+                team = EXCLUDED.team,
+                position = EXCLUDED.position,
+                status = EXCLUDED.status
+            ",
+            &[
+                &player_id,
+                &player_data["first_name"].as_str().unwrap_or("NA"),
+                &player_data["last_name"].as_str().unwrap_or("NA"),
+                &player_data["team"].as_str().unwrap_or("None"),
+                &player_data["position"].as_str().unwrap_or("NA"),
+                &player_data["status"].as_str().unwrap_or(""),
+            ]
+        ).await.unwrap();
+    }
+
     Ok(())
 }
