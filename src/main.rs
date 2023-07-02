@@ -20,15 +20,24 @@ async fn main() {
     ];
 
     let pool = db::create_pool().unwrap();
-   
+    println!("Creating tables...");   
     db::create_tables(&pool).await.unwrap();
 
     for lid in league_ids {
+        println!("Fetching league {}...", lid);
         stats::fetch_leagues(lid.clone(), &pool).await.unwrap();
+        println!("Fetching rosters for league {}...", lid);
         stats::fetch_rosters(lid.clone(), &pool).await.unwrap();
         // This requires making a lot of requests!
-        //stats::fetch_users(&pool).await.unwrap();
+        println!("Fetching users from league {}...", lid);
+        stats::fetch_users(lid.clone(), &pool).await.unwrap();
+
+        // Be careful with fetch players in the future.
+        // Temporarily reading from json file, but
+        // the call to the Sleeper API is large
     }
+    println!("Fetching players...");
+    stats::fetch_players(&pool).await.unwrap();
 
     let mut tera: Tera = Tera::new("templates/**/*").unwrap();
     let tera: Arc<Tera> = Arc::new(tera);
@@ -69,5 +78,6 @@ async fn main() {
             .with(warp::cors().allow_any_origin())
     );
 
+    println!("Starting server...");
     warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
 }

@@ -76,6 +76,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "604178f6c5c21f02dc555784810edfb88d34ac2c73b2eae109655649ee73ce3d"
 
 [[package]]
+name = "bigleague"
+version = "0.1.0"
+dependencies = [
+ "mobc",
+ "mobc-postgres",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tera",
+ "tokio",
+ "tokio-postgres",
+ "toml",
+ "warp",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -259,22 +275,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e51093e27b0797c359783294ca4f0a911c270184cb10f85783b118614a1501be"
 dependencies = [
  "instant",
-]
-
-[[package]]
-name = "ff-dashboard"
-version = "0.1.0"
-dependencies = [
- "mobc",
- "mobc-postgres",
- "reqwest",
- "serde",
- "serde_json",
- "tera",
- "tokio",
- "tokio-postgres",
- "toml",
- "warp",
 ]
 
 [[package]]

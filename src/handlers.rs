@@ -1,8 +1,6 @@
 use tera::{Tera, Context};
-use serde::{Serialize, Deserialize};
-use warp::{http::StatusCode, Filter, Reply, Rejection};
+use warp::{http::StatusCode, Reply, Rejection};
 use std::sync::Arc;
-use std::convert::Infallible;
 
 use crate::db;
 
@@ -60,9 +58,41 @@ pub async fn user_handler(id: String, db_pool: db::DBPool, tera: Arc<Tera>) -> s
         fpts_against_decimal: row.get(11),
     };
 
+    let player_rows = db.query(
+        "
+        SELECT * FROM players, ownership
+        WHERE players.id = ownership.player_id AND ownership.user_id = $1 
+        ORDER BY starter DESC,
+        (CASE position
+            WHEN 'QB' THEN 1 
+            WHEN 'RB' THEN 2
+            WHEN 'WR' THEN 3
+            WHEN 'TE' THEN 4
+            WHEN 'K' THEN 5
+            WHEN 'DEF' THEN 6
+            END) ASC
+        ",
+        &[&id]
+    ).await.unwrap();
+
+    let players: Vec<db::Player> = player_rows.into_iter()
+        .map(|player| {
+            db::Player {
+                id: player.get(0),
+                first_name: player.get(1),
+                last_name: player.get(2),
+                team: player.get(3),
+                position: player.get(4),
+                status: player.get(5),
+                starter: player.get(9),
+            }
+        })
+        .collect();
+
     let mut ctx = Context::new();
     ctx.insert("user", &user);
     ctx.insert("roster", &roster);
+    ctx.insert("players", &players);
     Ok(render("user.html", ctx, tera))
 }
 
@@ -72,7 +102,7 @@ pub async fn standings_handler(db_pool: db::DBPool, tera: Arc<Tera>) -> std::res
     let db = db::get_db_con(&db_pool)
             .await;
 
-    let rows = db.query("SELECT * FROM users, rosters WHERE users.id = rosters.user_id ORDER BY wins DESC, fpts DESC, fpts_decimal DESC, fpts_against DESC, fpts_decimal DESC", &[])
+    let rows = db.query("SELECT *, ROW_NUMBER() OVER (ORDER BY wins DESC, fpts DESC, fpts_decimal DESC, fpts_against DESC, fpts_against_decimal DESC) as rank FROM users, rosters WHERE users.id = rosters.user_id", &[])
         .await
         .unwrap();
 
@@ -95,10 +125,13 @@ pub async fn standings_handler(db_pool: db::DBPool, tera: Arc<Tera>) -> std::res
                 fpts_against: row.get(10),
                 fpts_against_decimal: row.get(11),
             };
-            
+           
+            let rank: i64 = row.get(12);
+
             db::Standing {
                 user,
                 roster,
+                rank,
             }
         })
         .collect();

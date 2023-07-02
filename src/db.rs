@@ -20,6 +20,7 @@ pub type DBPool = Pool<PgConnectionManager<NoTls>>;
 pub struct Standing {
     pub user: User,
     pub roster: Roster,
+    pub rank: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -47,6 +48,25 @@ pub struct User {
     pub id: String,
     pub name: String,
     pub avatar: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Player {
+    pub id: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub team: String,
+    pub position: String,
+    pub status: String,
+    pub starter: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Ownership {
+    pub user_id: String,
+    pub league_id: String,
+    pub player_id: String,
+    pub starter: i32,
 }
 
 pub async fn get_db_con(db_pool: &DBPool) -> DBCon {
@@ -111,6 +131,30 @@ pub async fn create_tables(db_pool: &DBPool) -> Result<()>{
         "
     ).await.unwrap();
 
+    con.batch_execute(
+        "
+        CREATE TABLE IF NOT EXISTS players (
+           id varchar(64) PRIMARY KEY,
+           first_name varchar(64) NOT NULL,
+           last_name varchar(64) NOT NULL,
+           team varchar(64),
+           position varchar(64),
+           status varchar(64)
+        )
+        "
+    ).await.unwrap();
+
+    con.batch_execute(
+        "
+        CREATE TABLE IF NOT EXISTS ownership (
+            user_id varchar(64) NOT NULL,
+            league_id varchar(64) NOT NULL,
+            player_id varchar(64) NOT NULL,
+            starter integer,
+            PRIMARY KEY (user_id, league_id, player_id)
+        )
+        "
+    ).await.unwrap();
+
     Ok(())
-    // Players later?
 }

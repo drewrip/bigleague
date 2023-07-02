@@ -1,11 +1,11 @@
 <html>
     {% include "header.html" %}
-    <div class="pure-g">
-        <div class="pure-u-1-5"></div>
-        <div class="pure-u-3-5">
-            <table class="pure-table pure-table-horizontal">
+    <div>
+        <div>
+            <table>
                 <thead>
                     <tr>
+                        <th>rank</th>
                         <th></th>
                         <th>name</th>
                         <th>wins</th>
@@ -16,7 +16,8 @@
                 </thead>
                 {% for s in standings -%}
                 <tr>
-                    <td><img class="pure-img avatar" src="https://sleepercdn.com/avatars/{{ s.user.avatar }}" /></td>
+                    <td>{{ s.rank }}</td>
+                    <td><img src="https://sleepercdn.com/avatars/{{ s.user.avatar }}" /></td>
                     <td><a href="/user/{{ s.user.id }}">{{ s.user.name }}</a></td>
                     <td>{{ s.roster.wins }}</td>
                     <td>{{ s.roster.losses }}</td>
@@ -25,8 +26,6 @@
                 </tr>
                 {%- endfor %}
             </table>
-        </div>
-        <div class="pure-u-1-5"></div>
         </div>
     </div>
     {% include "footer.html" %}
