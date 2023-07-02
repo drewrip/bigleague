@@ -28,15 +28,13 @@ async fn main() {
         stats::fetch_leagues(lid.clone(), &pool).await.unwrap();
         println!("Fetching rosters for league {}...", lid);
         stats::fetch_rosters(lid.clone(), &pool).await.unwrap();
-        // This requires making a lot of requests!
         println!("Fetching users from league {}...", lid);
         stats::fetch_users(lid.clone(), &pool).await.unwrap();
-
-        // Be careful with fetch players in the future.
-        // Temporarily reading from json file, but
-        // the call to the Sleeper API is large
     }
     println!("Fetching players...");
+    // Be careful with fetch players in the future.
+    // Temporarily reading from json file, but
+    // the call to the Sleeper API is large
     stats::fetch_players(&pool).await.unwrap();
 
     let mut tera: Tera = Tera::new("templates/**/*").unwrap();

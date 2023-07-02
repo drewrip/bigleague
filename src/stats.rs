@@ -175,15 +175,16 @@ pub async fn fetch_players(db_pool: &db::DBPool) -> Result<(), Infallible> {
     
     let con = db::get_db_con(db_pool).await;
 
+    /*
     let body = reqwest::get("https://api.sleeper.app/v1/players/nfl")
         .await
         .unwrap()
         .text()
         .await
         .unwrap();
-
+    */
     
-    //let body = std::fs::read_to_string("players.json").expect("couldn't read temp players.json file");
+    let body = std::fs::read_to_string("players.json").expect("couldn't read temp players.json file");
     let players: Value = serde_json::from_str(&body).unwrap();
 
     for (player_id, player_data) in players.as_object().unwrap() {

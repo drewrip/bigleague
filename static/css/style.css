@@ -1,13 +1,20 @@
-.center {
-    justify-content: center;
+.standing-avatar {
+    height: 7rem;
+    width: 7rem;
+    border-radius: 7rem;
 }
 
-.avatar {
-    width: 4em;
-    height: 4em;
-    border-radius: 4em;
+.user-avatar {
+    height: 15rem;
+    width: 15rem;
+    border-radius: 15rem;
 }
 
-#league-title {
-    text-align: center;
+.user-player-avatar {
+    width: 10rem;
+    border-radius: 10rem;
+}
+
+.user-card {
+    width: 90vw;
 }
