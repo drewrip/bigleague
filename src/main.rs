@@ -6,6 +6,7 @@ use std::convert::Infallible;
 mod db;
 mod stats;
 mod handlers;
+mod config;
 
 fn with_tera(tera: Arc<Tera>) -> impl Filter<Extract = (Arc<Tera>,), Error = Infallible> + Clone {
     warp::any().map(move || tera.clone())
@@ -13,11 +14,9 @@ fn with_tera(tera: Arc<Tera>) -> impl Filter<Extract = (Arc<Tera>,), Error = Inf
 
 #[tokio::main]
 async fn main() {
-    let league_ids = vec![
-        "853520029218607104".to_string(),
-        "958098050679967744".to_string(),
-        "871112580960231424".to_string(),
-    ];
+
+    let config: config::Config = config::read_config("Bigleague.toml").expect("Couldn't parse config file");
+    let league_ids = config.bigleague.leagues;
 
     let pool = db::create_pool().unwrap();
     println!("Creating tables...");   
@@ -35,7 +34,7 @@ async fn main() {
     // Be careful with fetch players in the future.
     // Temporarily reading from json file, but
     // the call to the Sleeper API is large
-    stats::fetch_players(&pool).await.unwrap();
+    // stats::fetch_players(&pool).await.unwrap();
 
     let mut tera: Tera = Tera::new("templates/**/*").unwrap();
     let tera: Arc<Tera> = Arc::new(tera);
