@@ -8,9 +8,7 @@ use std::time::Duration;
 use std::convert::Infallible;
 use serde::{Serialize, Deserialize};
 
-const DB_POOL_MAX_OPEN: u64 = 32;
-const DB_POOL_MAX_IDLE: u64 = 8;
-const DB_POOL_TIMEOUT_SECONDS: u64 = 15;
+use crate::config;
 
 pub type DBCon = Connection<PgConnectionManager<NoTls>>;
 pub type DBPool = Pool<PgConnectionManager<NoTls>>;
@@ -77,14 +75,21 @@ pub fn with_db(db_pool: DBPool) -> impl Filter<Extract = (DBPool,), Error = Infa
     warp::any().map(move || db_pool.clone())
 }
 
-pub fn create_pool() -> std::result::Result<DBPool, mobc::Error<Error>> {
-    let config = Config::from_str("host=0.0.0.0 user=admin password=password dbname=test")?;
+pub fn create_pool(bl_config: config::Config) -> std::result::Result<DBPool, mobc::Error<Error>> {
+    let pg_config = Config::from_str(
+        &format!("host={} user={} password={} dbname={}",
+            bl_config.database.host,
+            bl_config.database.user,
+            bl_config.database.password,
+            bl_config.database.dbname,
+        )
+    )?;
 
-    let manager = PgConnectionManager::new(config, NoTls);
+    let manager = PgConnectionManager::new(pg_config, NoTls);
     Ok(Pool::builder()
-            .max_open(DB_POOL_MAX_OPEN)
-            .max_idle(DB_POOL_MAX_IDLE)
-            .get_timeout(Some(Duration::from_secs(DB_POOL_TIMEOUT_SECONDS)))
+            .max_open(bl_config.database.max_open)
+            .max_idle(bl_config.database.max_idle)
+            .get_timeout(Some(Duration::from_secs(bl_config.database.timeout)))
             .build(manager))
 }
 

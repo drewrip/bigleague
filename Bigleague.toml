@@ -1,0 +1,28 @@
+[web]
+ip = "127.0.0.1"
+port = 8000
+
+[stats]
+rosters_interval = 600
+players_interval = 172800
+users_interval = 600
+leagues_interval = 600
+
+[database]
+host = "0.0.0.0"
+port = 5432
+user = "admin"
+password = "password"
+dbname = "test"
+max_open = 32
+max_idle = 8
+timeout = 15
+
+[bigleague]
+leagues = [
+    "853520029218607104",
+    "958098050679967744",
+    "871112580960231424",
+]
+playoff_teams = 8
+playoff_start_week = 14
