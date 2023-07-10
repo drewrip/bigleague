@@ -2,6 +2,7 @@ use tera::Tera;
 use warp::Filter;
 use std::sync::Arc;
 use std::convert::Infallible;
+use std::net::IpAddr;
 
 mod db;
 mod stats;
@@ -16,9 +17,9 @@ fn with_tera(tera: Arc<Tera>) -> impl Filter<Extract = (Arc<Tera>,), Error = Inf
 async fn main() {
 
     let config: config::Config = config::read_config("Bigleague.toml").expect("Couldn't parse config file");
-    let league_ids = config.bigleague.leagues;
+    let league_ids = config.clone().bigleague.leagues;
 
-    let pool = db::create_pool().unwrap();
+    let pool = db::create_pool(config.clone()).unwrap();
     println!("Creating tables...");   
     db::create_tables(&pool).await.unwrap();
 
@@ -36,7 +37,7 @@ async fn main() {
     // the call to the Sleeper API is large
     // stats::fetch_players(&pool).await.unwrap();
 
-    let mut tera: Tera = Tera::new("templates/**/*").unwrap();
+    let tera: Tera = Tera::new("templates/**/*").unwrap();
     let tera: Arc<Tera> = Arc::new(tera);
 
     let health_route = warp::path!("health")
@@ -76,5 +77,5 @@ async fn main() {
     );
 
     println!("Starting server...");
-    warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
+    warp::serve(routes).run((config.clone().web.ip.parse::<IpAddr>().expect("Couldn't parse ip as IpAddr"), config.web.port)).await;
 }
