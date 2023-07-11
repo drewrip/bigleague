@@ -11,7 +11,7 @@ fn render(template: &str, ctx: Context, tera: Arc<Tera>) -> impl Reply {
 }
 
 // GET /league/<id>
-pub async fn league_handler(id: String, db_pool: db::DBPool, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> { 
+pub async fn league_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> { 
     let db = db::get_db_con(&db_pool)
             .await;
 
@@ -30,7 +30,7 @@ pub async fn league_handler(id: String, db_pool: db::DBPool, tera: Arc<Tera>) ->
     Ok(render("league.html", ctx, tera)) 
 }
 
-pub async fn user_handler(id: String, db_pool: db::DBPool, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
+pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
     let db = db::get_db_con(&db_pool)
             .await;
 
@@ -96,7 +96,7 @@ pub async fn user_handler(id: String, db_pool: db::DBPool, tera: Arc<Tera>) -> s
     Ok(render("user.html", ctx, tera))
 }
 
-pub async fn standings_handler(db_pool: db::DBPool, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
+pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
 
 
     let db = db::get_db_con(&db_pool)
@@ -141,7 +141,7 @@ pub async fn standings_handler(db_pool: db::DBPool, tera: Arc<Tera>) -> std::res
     Ok(render("standings.html", ctx, tera))
 }
 
-pub async fn health_handler(db_pool: db::DBPool) -> std::result::Result<impl Reply, Rejection> {
+pub async fn health_handler(db_pool: Arc<db::DBPool>) -> std::result::Result<impl Reply, Rejection> {
     let db = db::get_db_con(&db_pool)
             .await;
 

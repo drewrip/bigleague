@@ -8,10 +8,10 @@ pub struct Web {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Stats {
-    pub rosters_interval: i32,
-    pub players_interval: i32,
-    pub users_interval: i32,
-    pub leagues_interval: i32,
+    pub rosters_interval: u64,
+    pub players_interval: u64,
+    pub users_interval: u64,
+    pub leagues_interval: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

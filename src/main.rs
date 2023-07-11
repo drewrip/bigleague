@@ -19,23 +19,17 @@ async fn main() {
     let config: config::Config = config::read_config("Bigleague.toml").expect("Couldn't parse config file");
     let league_ids = config.clone().bigleague.leagues;
 
-    let pool = db::create_pool(config.clone()).unwrap();
-    println!("Creating tables...");   
-    db::create_tables(&pool).await.unwrap();
+    let pool = Arc::new(db::create_pool(config.clone()).unwrap());
 
-    for lid in league_ids {
-        println!("Fetching league {}...", lid);
-        stats::fetch_leagues(lid.clone(), &pool).await.unwrap();
-        println!("Fetching rosters for league {}...", lid);
-        stats::fetch_rosters(lid.clone(), &pool).await.unwrap();
-        println!("Fetching users from league {}...", lid);
-        stats::fetch_users(lid.clone(), &pool).await.unwrap();
-    }
-    println!("Fetching players...");
-    // Be careful with fetch players in the future.
-    // Temporarily reading from json file, but
-    // the call to the Sleeper API is large
-    // stats::fetch_players(&pool).await.unwrap();
+    println!("Creating tables...");   
+    db::create_tables(pool.clone()).await.unwrap();
+    
+    let stats_pool = pool.clone();
+    let stats_config = config.clone();
+    tokio::spawn(async move {
+            stats::stats_loop(stats_config, stats_pool).await;
+        }
+    );
 
     let tera: Tera = Tera::new("templates/**/*").unwrap();
     let tera: Arc<Tera> = Arc::new(tera);

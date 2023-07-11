@@ -2,6 +2,56 @@ use reqwest;
 use serde_json::Value;
 use crate::db;
 use std::convert::Infallible;
+use std::error::Error;
+use tokio::time;
+use std::sync::Arc;
+
+use crate::config;
+
+pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Result<(), Box<dyn Error>> {
+    let mut rosters_interval = time::interval(
+        time::Duration::from_secs(config.stats.rosters_interval)
+    );
+    // Change the missed tick behavior so getting behind doesn't accidentally
+    // result in a burst of calls to Sleeper's API.
+    rosters_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    let mut users_interval = time::interval(
+        time::Duration::from_secs(config.stats.users_interval)
+    );
+    users_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    let mut leagues_interval = time::interval(
+        time::Duration::from_secs(config.stats.leagues_interval)
+    );
+    leagues_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    let mut players_interval = time::interval(
+        time::Duration::from_secs(config.stats.players_interval)
+    );
+    players_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    loop {
+        tokio::select! {
+            _ = rosters_interval.tick() => {
+                for league_id in config.clone().bigleague.leagues {
+                    println!("Fetching roster for league {}...", league_id);
+                }
+            }
+            _ = users_interval.tick() => {
+                println!("Fetching users...");
+            }
+            _ = leagues_interval.tick() => {
+                println!("Fetching leagues...");
+            }
+            _ = players_interval.tick() => {
+                println!("Fetching players...");
+            }
+        }    
+    }
+
+    Ok(())
+}
 
 pub async fn fetch_rosters(id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
 
