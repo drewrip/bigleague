@@ -12,6 +12,8 @@ pub struct Stats {
     pub players_interval: u64,
     pub users_interval: u64,
     pub leagues_interval: u64,
+    pub dev_mode: Option<bool>,
+    pub players_path: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
