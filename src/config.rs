@@ -44,6 +44,6 @@ pub struct Config {
 }
 
 pub fn read_config(path: &str) -> Result<Config, toml::de::Error> {
-    let raw_config = std::fs::read_to_string(path).expect("Can't find config file");
+    let raw_config = std::fs::read_to_string(path).expect("couldn't read config file");
     toml::from_str(&raw_config)
 }

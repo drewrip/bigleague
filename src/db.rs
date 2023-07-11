@@ -8,6 +8,7 @@ use std::time::Duration;
 use std::convert::Infallible;
 use serde::{Serialize, Deserialize};
 use std::sync::Arc;
+use log::info;
 
 use crate::config;
 
@@ -77,9 +78,13 @@ pub fn with_db(db_pool: Arc<DBPool>) -> impl Filter<Extract = (Arc<DBPool>,), Er
 }
 
 pub fn create_pool(bl_config: config::Config) -> std::result::Result<DBPool, mobc::Error<Error>> {
+    
+    info!("creating database pool");
+
     let pg_config = Config::from_str(
-        &format!("host={} user={} password={} dbname={}",
+        &format!("host={} port={} user={} password={} dbname={}",
             bl_config.database.host,
+            bl_config.database.port.unwrap_or(5432),
             bl_config.database.user,
             bl_config.database.password,
             bl_config.database.dbname,
@@ -95,6 +100,8 @@ pub fn create_pool(bl_config: config::Config) -> std::result::Result<DBPool, mob
 }
 
 pub async fn create_tables(db_pool: Arc<DBPool>) -> Result<()>{
+
+    info!("creating tables");
 
     let con = get_db_con(&db_pool).await;
 
