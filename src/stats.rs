@@ -5,10 +5,13 @@ use std::convert::Infallible;
 use std::error::Error;
 use tokio::time;
 use std::sync::Arc;
+use log::info;
 
 use crate::config;
 
 pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Result<(), Box<dyn Error>> {
+
+    info!("starting stats loop");
 
     let dev_mode = match config.clone().stats.dev_mode {
         Some(m) => m,
@@ -51,25 +54,20 @@ pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Res
         tokio::select! {
             _ = rosters_interval.tick() => {
                 for league_id in config.clone().bigleague.leagues {
-                    println!("Fetching roster for league {}...", league_id);
                     let _ = fetch_rosters(league_id, &db_pool).await;
                 }
             }
             _ = users_interval.tick() => {
                 for league_id in config.clone().bigleague.leagues {
-                    println!("Fetching roster for league {}...", league_id);
                     let _ = fetch_users(league_id, &db_pool).await;
                 }
             }
             _ = leagues_interval.tick() => {
                 for league_id in config.clone().bigleague.leagues {
-                    println!("Fetching league {}...", league_id);
                     let _ = fetch_leagues(league_id, &db_pool).await;
-                } 
-                println!("Fetching leagues...");
+                }
             }
             _ = players_interval.tick() => {
-                println!("Fetching players...");
                 let _ = fetch_players(&db_pool, dev_mode, players_path.clone()).await;
             }
         }    
@@ -78,16 +76,19 @@ pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Res
     Ok(())
 }
 
-pub async fn fetch_rosters(id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
+pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
+
+    info!("fetching rosters for league: {}", league_id);
 
     let con = db::get_db_con(db_pool).await;
 
-    let body = reqwest::get(format!("https://api.sleeper.app/v1/league/{}/rosters", id))
+    let body = reqwest::get(format!("https://api.sleeper.app/v1/league/{}/rosters", league_id))
         .await
         .unwrap()
         .text()
         .await
         .unwrap();
+
     let roster_list: Vec<Value> = serde_json::from_str(&body).unwrap();
 
     // This is really ugly, should improve the deserialization later
@@ -175,11 +176,13 @@ pub async fn fetch_rosters(id: String, db_pool: &db::DBPool) -> Result<(), Infal
     Ok(())
 }
 
-pub async fn fetch_leagues(id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
-    
+pub async fn fetch_leagues(league_id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
+
+    info!("fetching info about league: {}", league_id);
+
     let con = db::get_db_con(db_pool).await;
 
-    let body = reqwest::get(format!("https://api.sleeper.app/v1/league/{}", id))
+    let body = reqwest::get(format!("https://api.sleeper.app/v1/league/{}", league_id))
         .await
         .unwrap()
         .text()
@@ -206,7 +209,9 @@ pub async fn fetch_leagues(id: String, db_pool: &db::DBPool) -> Result<(), Infal
 }
 
 pub async fn fetch_users(league_id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
-    
+
+    info!("fetching users for league: {}", league_id);
+
     let con = db::get_db_con(db_pool).await;
 
     let rows = con.query("SELECT user_id FROM rosters", &[]).await.unwrap();
@@ -247,6 +252,8 @@ pub async fn fetch_users(league_id: String, db_pool: &db::DBPool) -> Result<(), 
 // according to their docs, we shouldn't call this more
 // than once a day
 pub async fn fetch_players(db_pool: &db::DBPool, dev_mode: bool, players_path: String) -> Result<(), Infallible> {
+
+    info!("fetching all players");
 
     let con = db::get_db_con(db_pool).await;
 

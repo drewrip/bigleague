@@ -1,9 +1,9 @@
 use tera::{Tera, Context};
-use warp::{http::StatusCode, Reply, Rejection};
+use warp::{Reply, Rejection};
 use std::sync::Arc;
+use log::info;
 
 use crate::db;
-
 
 fn render(template: &str, ctx: Context, tera: Arc<Tera>) -> impl Reply {
     let render = tera.render(template, &ctx).unwrap();
@@ -11,7 +11,10 @@ fn render(template: &str, ctx: Context, tera: Arc<Tera>) -> impl Reply {
 }
 
 // GET /league/<id>
-pub async fn league_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> { 
+pub async fn league_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
+
+    info!("GET /league/{}", id);
+
     let db = db::get_db_con(&db_pool)
             .await;
 
@@ -31,6 +34,9 @@ pub async fn league_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera
 }
 
 pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
+
+    info!("GET /user/{}", id);
+
     let db = db::get_db_con(&db_pool)
             .await;
 
@@ -98,6 +104,7 @@ pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>)
 
 pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
 
+    info!("GET /standings");
 
     let db = db::get_db_con(&db_pool)
             .await;
@@ -141,17 +148,10 @@ pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std
     Ok(render("standings.html", ctx, tera))
 }
 
-pub async fn health_handler(db_pool: Arc<db::DBPool>) -> std::result::Result<impl Reply, Rejection> {
-    let db = db::get_db_con(&db_pool)
-            .await;
-
-    db.execute("SELECT 1", &[])
-            .await
-            .unwrap();
-    Ok(StatusCode::OK)
-}
-
 pub async fn not_found_handler(tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
-   let ctx = Context::new();
-   Ok(render("notfound.html", ctx, tera)) 
+
+    info!("GET unknown endpoint");
+
+    let ctx = Context::new();
+    Ok(render("notfound.html", ctx, tera)) 
 }
