@@ -7,6 +7,8 @@ rosters_interval = 600
 players_interval = 172800
 users_interval = 600
 leagues_interval = 600
+dev_mode = true
+players_path = "data/players.json"
 
 [database]
 host = "0.0.0.0"

@@ -7,6 +7,7 @@ use std::str::FromStr;
 use std::time::Duration;
 use std::convert::Infallible;
 use serde::{Serialize, Deserialize};
+use std::sync::Arc;
 
 use crate::config;
 
@@ -71,7 +72,7 @@ pub async fn get_db_con(db_pool: &DBPool) -> DBCon {
     db_pool.get().await.unwrap()
 }
 
-pub fn with_db(db_pool: DBPool) -> impl Filter<Extract = (DBPool,), Error = Infallible> + Clone {
+pub fn with_db(db_pool: Arc<DBPool>) -> impl Filter<Extract = (Arc<DBPool>,), Error = Infallible> + Clone {
     warp::any().map(move || db_pool.clone())
 }
 
@@ -93,9 +94,9 @@ pub fn create_pool(bl_config: config::Config) -> std::result::Result<DBPool, mob
             .build(manager))
 }
 
-pub async fn create_tables(db_pool: &DBPool) -> Result<()>{
+pub async fn create_tables(db_pool: Arc<DBPool>) -> Result<()>{
 
-    let con = get_db_con(db_pool).await;
+    let con = get_db_con(&db_pool).await;
 
     // Create table for the leagues that the users are in
     con.batch_execute(

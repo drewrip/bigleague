@@ -2,6 +2,81 @@ use reqwest;
 use serde_json::Value;
 use crate::db;
 use std::convert::Infallible;
+use std::error::Error;
+use tokio::time;
+use std::sync::Arc;
+
+use crate::config;
+
+pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Result<(), Box<dyn Error>> {
+
+    let dev_mode = match config.clone().stats.dev_mode {
+        Some(m) => m,
+        None => false,
+    };
+    
+    let players_path = match config.clone().stats.players_path {
+        Some(p) => p,
+        None => {
+            match dev_mode {
+                true => String::from("data/players.json"),
+                false => String::from(""),
+            }
+        },
+    };
+
+    let mut rosters_interval = time::interval(
+        time::Duration::from_secs(config.stats.rosters_interval)
+    );
+    // Change the missed tick behavior so getting behind doesn't accidentally
+    // result in a burst of calls to Sleeper's API.
+    rosters_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    let mut users_interval = time::interval(
+        time::Duration::from_secs(config.stats.users_interval)
+    );
+    users_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    let mut leagues_interval = time::interval(
+        time::Duration::from_secs(config.stats.leagues_interval)
+    );
+    leagues_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    let mut players_interval = time::interval(
+        time::Duration::from_secs(config.stats.players_interval)
+    );
+    players_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    loop {
+        tokio::select! {
+            _ = rosters_interval.tick() => {
+                for league_id in config.clone().bigleague.leagues {
+                    println!("Fetching roster for league {}...", league_id);
+                    let _ = fetch_rosters(league_id, &db_pool).await;
+                }
+            }
+            _ = users_interval.tick() => {
+                for league_id in config.clone().bigleague.leagues {
+                    println!("Fetching roster for league {}...", league_id);
+                    let _ = fetch_users(league_id, &db_pool).await;
+                }
+            }
+            _ = leagues_interval.tick() => {
+                for league_id in config.clone().bigleague.leagues {
+                    println!("Fetching league {}...", league_id);
+                    let _ = fetch_leagues(league_id, &db_pool).await;
+                } 
+                println!("Fetching leagues...");
+            }
+            _ = players_interval.tick() => {
+                println!("Fetching players...");
+                let _ = fetch_players(&db_pool, dev_mode, players_path.clone()).await;
+            }
+        }    
+    }
+
+    Ok(())
+}
 
 pub async fn fetch_rosters(id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
 
@@ -130,7 +205,7 @@ pub async fn fetch_leagues(id: String, db_pool: &db::DBPool) -> Result<(), Infal
     Ok(())
 }
 
-pub async fn fetch_users(id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
+pub async fn fetch_users(league_id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
     
     let con = db::get_db_con(db_pool).await;
 
@@ -140,7 +215,7 @@ pub async fn fetch_users(id: String, db_pool: &db::DBPool) -> Result<(), Infalli
         .map(|row| row.get(0))
         .collect();
 
-    let body = reqwest::get(format!("https://api.sleeper.app/v1/league/{}/users", id))
+    let body = reqwest::get(format!("https://api.sleeper.app/v1/league/{}/users", league_id))
         .await
         .unwrap()
         .text()
@@ -171,20 +246,21 @@ pub async fn fetch_users(id: String, db_pool: &db::DBPool) -> Result<(), Infalli
 // The underlying call to Sleeper's API is expensive and
 // according to their docs, we shouldn't call this more
 // than once a day
-pub async fn fetch_players(db_pool: &db::DBPool) -> Result<(), Infallible> {
-    
+pub async fn fetch_players(db_pool: &db::DBPool, dev_mode: bool, players_path: String) -> Result<(), Infallible> {
+
     let con = db::get_db_con(db_pool).await;
 
-    /*
-    let body = reqwest::get("https://api.sleeper.app/v1/players/nfl")
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
-    */
-    
-    let body = std::fs::read_to_string("players.json").expect("couldn't read temp players.json file");
+    let body = if dev_mode {
+        std::fs::read_to_string(players_path).expect("couldn't read temp players.json file")
+    } else {
+        reqwest::get("https://api.sleeper.app/v1/players/nfl")
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap()
+    };
+
     let players: Value = serde_json::from_str(&body).unwrap();
 
     for (player_id, player_data) in players.as_object().unwrap() {
