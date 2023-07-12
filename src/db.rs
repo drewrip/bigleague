@@ -20,6 +20,7 @@ pub type DBPool = Pool<PgConnectionManager<NoTls>>;
 pub struct Standing {
     pub user: User,
     pub roster: Roster,
+    pub league: League,
     pub rank: i64,
 }
 

@@ -5,7 +5,7 @@ use std::convert::Infallible;
 use std::error::Error;
 use tokio::time;
 use std::sync::Arc;
-use log::info;
+use log::{info, warn};
 
 use crate::config;
 
@@ -17,7 +17,11 @@ pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Res
         Some(m) => m,
         None => false,
     };
-    
+
+    if dev_mode {
+        warn!("running in dev mode");
+    }
+
     let players_path = match config.clone().stats.players_path {
         Some(p) => p,
         None => {

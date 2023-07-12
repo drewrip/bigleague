@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
     {% include "header.html" %}
     <div>
@@ -12,6 +13,7 @@
                         <th>losses</th>
                         <th>points for</th>
                         <th>points against</th>
+                        <th>league</th>
                     </tr>
                 </thead>
                 {% for s in standings -%}
@@ -23,6 +25,7 @@
                     <td>{{ s.roster.losses }}</td>
                     <td>{{ s.roster.fpts }}.{{ s.roster.fpts_decimal }}</td>
                     <td>{{ s.roster.fpts_against }}.{{ s.roster.fpts_against_decimal }}</td>
+                    <td><a href="/league/{{ s.league.id }}">{{ s.league.name }}</a></td>
                 </tr>
                 {%- endfor %}
             </table>

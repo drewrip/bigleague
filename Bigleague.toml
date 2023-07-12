@@ -3,10 +3,10 @@ ip = "127.0.0.1"
 port = 8000
 
 [stats]
-rosters_interval = 600
+rosters_interval = 3000
 players_interval = 172800
-users_interval = 600
-leagues_interval = 600
+users_interval = 3000
+leagues_interval = 3000
 dev_mode = true
 players_path = "data/players.json"
 
