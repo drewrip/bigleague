@@ -1,7 +1,34 @@
+<!DOCTYPE html>
 <html>
     {% include "header.html" %}
-    <img src="https://sleepercdn.com/avatars/{{ league.avatar }}" alt="League Avatar" />
-    <h1>{{ league.name }}</h1>
-    <h3>{{ league.id }}</h3>
+    <div>
+        <h1 class="is-center">{{ league.name }}</h1>
+        <div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>rank</th>
+                        <th></th>
+                        <th>name</th>
+                        <th>wins</th>
+                        <th>losses</th>
+                        <th>points for</th>
+                        <th>points against</th>
+                    </tr>
+                </thead>
+                {% for s in standings -%}
+                <tr>
+                    <td>{{ s.rank }}</td>
+                    <td><img class="standing-avatar" src="https://sleepercdn.com/avatars/{{ s.user.avatar }}" /></td>
+                    <td><a href="/user/{{ s.user.id }}">{{ s.user.name }}</a></td>
+                    <td>{{ s.roster.wins }}</td>
+                    <td>{{ s.roster.losses }}</td>
+                    <td>{{ s.roster.fpts }}.{{ s.roster.fpts_decimal }}</td>
+                    <td>{{ s.roster.fpts_against }}.{{ s.roster.fpts_against_decimal }}</td>
+                </tr>
+                {%- endfor %}
+            </table>
+        </div>
+    </div>
     {% include "footer.html" %}
-</html
+</html>

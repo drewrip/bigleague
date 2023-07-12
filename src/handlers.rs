@@ -1,5 +1,6 @@
 use tera::{Tera, Context};
 use warp::{Reply, Rejection};
+use tokio_postgres::row::Row;
 use std::sync::Arc;
 use log::info;
 
@@ -10,7 +11,6 @@ fn render(template: &str, ctx: Context, tera: Arc<Tera>) -> impl Reply {
     warp::reply::html(render)
 }
 
-// GET /league/<id>
 pub async fn league_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
 
     info!("GET /league/{}", id);
@@ -28,8 +28,16 @@ pub async fn league_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera
         name: rows[0].get(1),
         avatar: rows[0].get(2),
     };
+
+    let rows = db.query("SELECT *, ROW_NUMBER() OVER (ORDER BY wins DESC, fpts DESC, fpts_decimal DESC, fpts_against DESC, fpts_against_decimal DESC) as rank FROM users, rosters, leagues WHERE users.id = rosters.user_id AND leagues.id = rosters.league_id AND rosters.league_id = $1", &[&idstr])
+        .await
+        .unwrap();
+
+    let standings = collect_standings(rows);
+
     let mut ctx = Context::new();
     ctx.insert("league", &league);
+    ctx.insert("standings", &standings);
     Ok(render("league.html", ctx, tera)) 
 }
 
@@ -109,11 +117,19 @@ pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std
     let db = db::get_db_con(&db_pool)
             .await;
 
-    let rows = db.query("SELECT *, ROW_NUMBER() OVER (ORDER BY wins DESC, fpts DESC, fpts_decimal DESC, fpts_against DESC, fpts_against_decimal DESC) as rank FROM users, rosters WHERE users.id = rosters.user_id", &[])
+    let rows = db.query("SELECT *, ROW_NUMBER() OVER (ORDER BY wins DESC, fpts DESC, fpts_decimal DESC, fpts_against DESC, fpts_against_decimal DESC) as rank FROM users, rosters, leagues WHERE users.id = rosters.user_id AND leagues.id = rosters.league_id", &[])
         .await
         .unwrap();
 
-    let standings: Vec<db::Standing> = rows.into_iter()
+    let standings = collect_standings(rows);
+
+    let mut ctx = Context::new();
+    ctx.insert("standings", &standings);
+    Ok(render("standings.html", ctx, tera))
+}
+
+fn collect_standings(rows: Vec<Row>) -> Vec<db::Standing> {
+    rows.into_iter()
         .map(|row| {
             let user = db::User {
                 id: row.get(0),
@@ -132,20 +148,23 @@ pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std
                 fpts_against: row.get(10),
                 fpts_against_decimal: row.get(11),
             };
-           
-            let rank: i64 = row.get(12);
+          
+            let league = db::League {
+                id: row.get(12),
+                name: row.get(13),
+                avatar: row.get(14),
+            };
+
+            let rank: i64 = row.get(15);
 
             db::Standing {
                 user,
                 roster,
+                league,
                 rank,
             }
         })
-        .collect();
-
-    let mut ctx = Context::new();
-    ctx.insert("standings", &standings);
-    Ok(render("standings.html", ctx, tera))
+        .collect()
 }
 
 pub async fn not_found_handler(tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
