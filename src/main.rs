@@ -45,7 +45,7 @@ async fn main() {
         .and(with_tera(tera.clone()))
         .and_then(handlers::user_handler);
 
-    let standings_route = warp::path!("standings")
+    let standings_route = warp::path::end()
         .and(db::with_db(pool.clone()))
         .and(with_tera(tera.clone()))
         .and_then(handlers::standings_handler);
