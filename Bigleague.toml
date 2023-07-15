@@ -7,6 +7,8 @@ rosters_interval = 3000
 players_interval = 172800
 users_interval = 3000
 leagues_interval = 3000
+state_interval = 3000
+matchups_interval = 3000
 dev_mode = true
 players_path = "data/players.json"
 

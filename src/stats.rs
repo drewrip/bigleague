@@ -6,6 +6,7 @@ use std::error::Error;
 use tokio::time;
 use std::sync::Arc;
 use log::{info, warn};
+use std::collections::{HashMap, HashSet};
 
 use crate::config;
 
@@ -54,25 +55,43 @@ pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Res
     );
     players_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
+    let mut state_interval = time::interval(
+        time::Duration::from_secs(config.stats.state_interval)
+    );
+    state_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    let mut matchups_interval = time::interval(
+        time::Duration::from_secs(config.stats.matchups_interval)
+    );
+    matchups_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
     loop {
         tokio::select! {
             _ = rosters_interval.tick() => {
                 for league_id in config.clone().bigleague.leagues {
-                    let _ = fetch_rosters(league_id, &db_pool).await;
+                    let _ = fetch_rosters(&db_pool, league_id).await;
                 }
             }
             _ = users_interval.tick() => {
                 for league_id in config.clone().bigleague.leagues {
-                    let _ = fetch_users(league_id, &db_pool).await;
+                    let _ = fetch_users(&db_pool, league_id).await;
                 }
             }
             _ = leagues_interval.tick() => {
                 for league_id in config.clone().bigleague.leagues {
-                    let _ = fetch_leagues(league_id, &db_pool).await;
+                    let _ = fetch_leagues(&db_pool, league_id).await;
                 }
             }
             _ = players_interval.tick() => {
                 let _ = fetch_players(&db_pool, dev_mode, players_path.clone()).await;
+            }
+            _ = state_interval.tick() => {
+                let _ = fetch_state(&db_pool).await;
+            }
+            _ = matchups_interval.tick() => {
+                for league_id in config.clone().bigleague.leagues {
+                    let _ = fetch_matchups(&db_pool, league_id).await;
+                }
             }
         }    
     }
@@ -80,7 +99,7 @@ pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Res
     Ok(())
 }
 
-pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
+pub async fn fetch_rosters(db_pool: &db::DBPool, league_id: String) -> Result<(), Infallible> {
 
     info!("fetching rosters for league: {}", league_id);
 
@@ -99,7 +118,7 @@ pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<()
     for r in roster_list {
         con.execute(
             "
-            INSERT INTO rosters VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO rosters VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT(user_id) DO UPDATE SET
                 user_id = EXCLUDED.user_id,
                 league_id = EXCLUDED.league_id,
@@ -109,7 +128,8 @@ pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<()
                 fpts = EXCLUDED.fpts,
                 fpts_decimal = EXCLUDED.fpts_decimal,
                 fpts_against = EXCLUDED.fpts_against,
-                fpts_against_decimal = EXCLUDED.fpts_against_decimal
+                fpts_against_decimal = EXCLUDED.fpts_against_decimal,
+                roster_id = EXCLUDED.roster_id
             ",
             &[
                 &r["owner_id"].as_str().unwrap(),
@@ -121,6 +141,7 @@ pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<()
                 &i32::try_from(r["settings"]["fpts_decimal"].as_i64().unwrap_or(0)).unwrap(),
                 &i32::try_from(r["settings"]["fpts_against"].as_u64().unwrap_or(0)).unwrap(),
                 &i32::try_from(r["settings"]["fpts_against_decimal"].as_u64().unwrap_or(0)).unwrap(), 
+                &i32::try_from(r["roster_id"].as_u64().unwrap_or(0)).unwrap(),
             ]
         ).await.unwrap();
 
@@ -180,7 +201,7 @@ pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<()
     Ok(())
 }
 
-pub async fn fetch_leagues(league_id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
+pub async fn fetch_leagues(db_pool: &db::DBPool, league_id: String) -> Result<(), Infallible> {
 
     info!("fetching info about league: {}", league_id);
 
@@ -212,7 +233,7 @@ pub async fn fetch_leagues(league_id: String, db_pool: &db::DBPool) -> Result<()
     Ok(())
 }
 
-pub async fn fetch_users(league_id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
+pub async fn fetch_users(db_pool: &db::DBPool, league_id: String) -> Result<(), Infallible> {
 
     info!("fetching users for league: {}", league_id);
 
@@ -297,5 +318,151 @@ pub async fn fetch_players(db_pool: &db::DBPool, dev_mode: bool, players_path: S
         ).await.unwrap();
     }
 
+    Ok(())
+}
+
+pub async fn fetch_state(db_pool: &db::DBPool) -> Result<(), Infallible> {
+
+    info!("fetching the state of the NFL");
+
+    let con = db::get_db_con(db_pool).await;
+
+    let body = reqwest::get("https://api.sleeper.app/v1/state/nfl")
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+
+    let state: Value = serde_json::from_str(&body).unwrap();
+
+    con.execute(
+        "
+        INSERT INTO state VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT(season, week) DO UPDATE SET
+            season = EXCLUDED.season,
+            week = EXCLUDED.week,
+            league_season = EXCLUDED.league_season,
+            display_week = EXCLUDED.display_week,
+            season_type = EXCLUDED.season_type
+            
+        ",
+        &[
+            &state["season"].as_str().unwrap_or("0").parse::<i32>().unwrap_or(0),
+            &i32::try_from(state["week"].as_u64().unwrap_or(0)).unwrap(),
+            &state["league_season"].as_str().unwrap_or("0").parse::<i32>().unwrap_or(0),
+            &i32::try_from(state["display_week"].as_u64().unwrap_or(0)).unwrap(),
+            &state["season_type"].as_str().unwrap_or("NA"),
+        ]
+    ).await.unwrap();
+
+    Ok(())
+}
+
+pub async fn fetch_matchups(db_pool: &db::DBPool, league_id: String) -> Result<(), Infallible> {
+
+    info!("fetching matchups for league: {}", league_id);
+
+    let con = db::get_db_con(db_pool).await;
+
+    let time = con.query("SELECT season, week FROM state ORDER BY season DESC, week DESC LIMIT 1", &[])
+        .await
+        .unwrap();
+
+    let season: i32 = 2022;//time[0].get("season");
+    let week: i32 = 12;//time[0].get("week");
+
+    let body = reqwest::get(format!("https://api.sleeper.app/v1/league/{}/matchups/{}", league_id, week))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    let matchups: Vec<Value> = serde_json::from_str(&body).unwrap();
+
+    let roster_map_for_league: HashMap<i32, String> = 
+        con.query("
+            SELECT roster_id, user_id FROM rosters WHERE league_id = $1
+            ",
+            &[&league_id])
+        .await
+        .unwrap()
+        .iter()
+        .map(|row| (row.get("roster_id"), row.get("user_id")))
+        .collect();
+
+    let mut opponent_map: HashMap<String, String> = HashMap::new();
+    let mut opponent_resolutions: HashMap<u64, u64> = HashMap::new();
+    for matchup in matchups.clone() {
+        let m_id = matchup["matchup_id"].as_u64().unwrap();
+        let r_id = matchup["roster_id"].as_u64().unwrap();
+
+        if opponent_resolutions.contains_key(&m_id) {
+            let opponents = (
+                roster_map_for_league.get(&i32::try_from(r_id).unwrap()).unwrap(),
+                roster_map_for_league.get(
+                    &i32::try_from(
+                        *opponent_resolutions.get(&m_id).unwrap()
+                    ).unwrap()
+                ).unwrap(),
+            );
+            opponent_map.insert(opponents.0.to_string(), opponents.1.to_string());
+            opponent_map.insert(opponents.1.to_string(), opponents.0.to_string());
+        } else {
+            opponent_resolutions.insert(m_id, r_id);
+        }
+    }
+
+    for matchup in matchups {
+        let user = roster_map_for_league.get(
+            &i32::try_from(matchup["roster_id"].as_u64().unwrap()).unwrap()
+        ).unwrap();
+
+        con.execute(
+            "
+            INSERT INTO matchups VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT(season, week, league_id, user_id, opponent_id) DO UPDATE SET
+                season = EXCLUDED.season,
+                week = EXCLUDED.week,
+                league_id = EXCLUDED.league_id,
+                user_id = EXCLUDED.user_id,
+                opponent_id = EXCLUDED.opponent_id,
+                points = EXCLUDED.points
+            ",
+            &[
+                &season,
+                &week,
+                &league_id,
+                user,
+                &opponent_map.get(
+                    user
+                ).unwrap(),
+                &(matchup["points"].as_f64().unwrap() as f32),
+            ]
+        ).await.unwrap();
+
+        for (player, points) in matchup["players_points"].as_object().unwrap() {
+            con.execute(
+            "
+            INSERT INTO scores VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT(player_id, league_id, season, week) DO UPDATE SET
+                player_id = EXCLUDED.player_id,
+                league_id = EXCLUDED.league_id,
+                season = EXCLUDED.season,
+                week = EXCLUDED.week,
+                points = EXCLUDED.points
+            ",
+            &[
+                player,
+                &league_id,
+                &season,
+                &week,
+                &(points.as_f64().unwrap() as f32),
+            ]
+        ).await.unwrap();
+    
+        }
+    } 
     Ok(())
 }
