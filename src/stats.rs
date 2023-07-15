@@ -54,25 +54,43 @@ pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Res
     );
     players_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
 
+    let mut state_interval = time::interval(
+        time::Duration::from_secs(config.stats.state_interval)
+    );
+    state_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
+    let mut matchups_interval = time::interval(
+        time::Duration::from_secs(config.stats.matchups_interval)
+    );
+    matchups_interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
+
     loop {
         tokio::select! {
             _ = rosters_interval.tick() => {
                 for league_id in config.clone().bigleague.leagues {
-                    let _ = fetch_rosters(league_id, &db_pool).await;
+                    let _ = fetch_rosters(&db_pool, league_id).await;
                 }
             }
             _ = users_interval.tick() => {
                 for league_id in config.clone().bigleague.leagues {
-                    let _ = fetch_users(league_id, &db_pool).await;
+                    let _ = fetch_users(&db_pool, league_id).await;
                 }
             }
             _ = leagues_interval.tick() => {
                 for league_id in config.clone().bigleague.leagues {
-                    let _ = fetch_leagues(league_id, &db_pool).await;
+                    let _ = fetch_leagues(&db_pool, league_id).await;
                 }
             }
             _ = players_interval.tick() => {
                 let _ = fetch_players(&db_pool, dev_mode, players_path.clone()).await;
+            }
+            _ = state_interval.tick() => {
+                let _ = fetch_state(&db_pool).await;
+            }
+            _ = matchups_interval.tick() => {
+                for league_id in config.clone().bigleague.leagues {
+                    let _ = fetch_matchups(&db_pool, league_id).await;
+                }
             }
         }    
     }
@@ -80,7 +98,7 @@ pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Res
     Ok(())
 }
 
-pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
+pub async fn fetch_rosters(db_pool: &db::DBPool, league_id: String) -> Result<(), Infallible> {
 
     info!("fetching rosters for league: {}", league_id);
 
@@ -99,7 +117,7 @@ pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<()
     for r in roster_list {
         con.execute(
             "
-            INSERT INTO rosters VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO rosters VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT(user_id) DO UPDATE SET
                 user_id = EXCLUDED.user_id,
                 league_id = EXCLUDED.league_id,
@@ -109,7 +127,8 @@ pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<()
                 fpts = EXCLUDED.fpts,
                 fpts_decimal = EXCLUDED.fpts_decimal,
                 fpts_against = EXCLUDED.fpts_against,
-                fpts_against_decimal = EXCLUDED.fpts_against_decimal
+                fpts_against_decimal = EXCLUDED.fpts_against_decimal,
+                roster_id = EXCLUDED.roster_id
             ",
             &[
                 &r["owner_id"].as_str().unwrap(),
@@ -121,6 +140,7 @@ pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<()
                 &i32::try_from(r["settings"]["fpts_decimal"].as_i64().unwrap_or(0)).unwrap(),
                 &i32::try_from(r["settings"]["fpts_against"].as_u64().unwrap_or(0)).unwrap(),
                 &i32::try_from(r["settings"]["fpts_against_decimal"].as_u64().unwrap_or(0)).unwrap(), 
+                &i32::try_from(r["roster_id"].as_u64().unwrap_or(0)).unwrap(),
             ]
         ).await.unwrap();
 
@@ -180,7 +200,7 @@ pub async fn fetch_rosters(league_id: String, db_pool: &db::DBPool) -> Result<()
     Ok(())
 }
 
-pub async fn fetch_leagues(league_id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
+pub async fn fetch_leagues(db_pool: &db::DBPool, league_id: String) -> Result<(), Infallible> {
 
     info!("fetching info about league: {}", league_id);
 
@@ -212,7 +232,7 @@ pub async fn fetch_leagues(league_id: String, db_pool: &db::DBPool) -> Result<()
     Ok(())
 }
 
-pub async fn fetch_users(league_id: String, db_pool: &db::DBPool) -> Result<(), Infallible> {
+pub async fn fetch_users(db_pool: &db::DBPool, league_id: String) -> Result<(), Infallible> {
 
     info!("fetching users for league: {}", league_id);
 
@@ -296,6 +316,16 @@ pub async fn fetch_players(db_pool: &db::DBPool, dev_mode: bool, players_path: S
             ]
         ).await.unwrap();
     }
+
+    Ok(())
+}
+
+pub async fn fetch_state(db_pool: &db::DBPool) -> Result<(), Infallible> {
+
+    Ok(())
+}
+
+pub async fn fetch_matchups(db_pool: &db::DBPool, league_id: String) -> Result<(), Infallible> {
 
     Ok(())
 }

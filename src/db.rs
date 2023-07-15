@@ -42,6 +42,7 @@ pub struct Roster {
     pub fpts_decimal: i32,
     pub fpts_against: i32,
     pub fpts_against_decimal: i32,
+    pub roster_id: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -140,7 +141,8 @@ pub async fn create_tables(db_pool: Arc<DBPool>) -> Result<()>{
             fpts integer NOT NULL,
             fpts_decimal integer NOT NULL,
             fpts_against integer NOT NULL,
-            fpts_against_decimal integer NOT NULL
+            fpts_against_decimal integer NOT NULL,
+            roster_id integer NOT NULL
         )
         "
     ).await.unwrap();
