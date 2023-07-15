@@ -71,6 +71,34 @@ pub struct Ownership {
     pub starter: i32,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct State {
+    pub season: i32,
+    pub week: i32,
+    pub league_season: i32,
+    pub display_week: i32,
+    pub season_type: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Matchup {
+    pub season: i32,
+    pub week: i32,
+    pub league_id: String,
+    pub user_id: String,
+    pub opponent_id: String,
+    pub points: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Score {
+    pub player_id: String,
+    pub league_id: String,
+    pub season: i32,
+    pub week: i32,
+    pub points: f32,
+}
+
 pub async fn get_db_con(db_pool: &DBPool) -> DBCon {
     db_pool.get().await.unwrap()
 }
@@ -172,5 +200,53 @@ pub async fn create_tables(db_pool: Arc<DBPool>) -> Result<()>{
         "
     ).await.unwrap();
 
+    con.batch_execute(
+        "
+        CREATE TABLE IF NOT EXISTS state (
+            season integer NOT NULL,
+            week integer NOT NULL,
+            league_season integer NOT NULL,
+            display_week integer NOT NULL,
+            season_type varchar(64) NOT NULL,
+            PRIMARY KEY (season, week)
+        )
+        "
+    ).await.unwrap();
+
+    con.batch_execute(
+        "
+        CREATE TABLE IF NOT EXISTS matchups (
+            season integer NOT NULL,
+            week integer NOT NULL,
+            league_id varchar(64) NOT NULL,
+            user_id varchar(64) NOT NULL,
+            opponent_id varchar(64) NOT NULL,
+            points real NOT NULL,
+            PRIMARY KEY (season, week, league_id, user_id, opponent_id)
+        )
+        "
+    ).await.unwrap();
+
+    con.batch_execute(
+        "
+        CREATE TABLE IF NOT EXISTS scores (
+            player_id varchar(64) NOT NULL,
+            league_id varchar(64) NOT NULL,
+            season integer NOT NULL,
+            week integer NOT NULL,
+            points real NOT NULL,
+            PRIMARY KEY (player_id, league_id, season, week)
+        )
+        "
+    ).await.unwrap();
+
+    con.batch_execute(
+        "
+        CREATE OR REPLACE VIEW ranks AS
+            SELECT user_id, ROW_NUMBER() OVER (ORDER BY wins DESC, fpts DESC, fpts_decimal DESC, fpts_against DESC, fpts_against_decimal DESC) as rank
+            FROM rosters, users 
+            WHERE rosters.user_id = users.id
+        "
+    ).await.unwrap();
     Ok(())
 }

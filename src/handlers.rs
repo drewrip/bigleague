@@ -29,7 +29,7 @@ pub async fn league_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera
         avatar: rows[0].get(2),
     };
 
-    let rows = db.query("SELECT * FROM (SELECT *, ROW_NUMBER() OVER (ORDER BY wins DESC, fpts DESC, fpts_decimal DESC, fpts_against DESC, fpts_against_decimal DESC) as rank FROM users, rosters, leagues WHERE users.id = rosters.user_id AND leagues.id = rosters.league_id) as league_standings WHERE league_standings.league_id = $1", &[&idstr])
+    let rows = db.query("SELECT * FROM users, rosters, leagues, ranks WHERE users.id = rosters.user_id AND leagues.id = rosters.league_id AND ranks.user_id = users.id AND leagues.id = $1 ORDER BY ranks.rank ASC", &[&idstr])
         .await
         .unwrap();
 
@@ -118,7 +118,7 @@ pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std
     let db = db::get_db_con(&db_pool)
             .await;
 
-    let rows = db.query("SELECT *, ROW_NUMBER() OVER (ORDER BY wins DESC, fpts DESC, fpts_decimal DESC, fpts_against DESC, fpts_against_decimal DESC) as rank FROM users, rosters, leagues WHERE users.id = rosters.user_id AND leagues.id = rosters.league_id", &[])
+    let rows = db.query("SELECT * FROM users, rosters, leagues, ranks WHERE users.id = rosters.user_id AND leagues.id = rosters.league_id AND ranks.user_id = users.id", &[])
         .await
         .unwrap();
 
@@ -157,7 +157,7 @@ fn collect_standings(rows: Vec<Row>) -> Vec<db::Standing> {
                 avatar: row.get(15),
             };
 
-            let rank: i64 = row.get(16);
+            let rank: i64 = row.get(17);
 
             db::Standing {
                 user,
