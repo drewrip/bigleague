@@ -17,16 +17,12 @@ host = "0.0.0.0"
 port = 5432
 user = "admin"
 password = "password"
-dbname = "test"
+dbname = "bigleague"
 max_open = 32
 max_idle = 8
 timeout = 15
 
 [bigleague]
-leagues = [
-    "853520029218607104",
-    "958098050679967744",
-    "871112580960231424",
-]
+leagues = []
 playoff_teams = 8
 playoff_start_week = 14

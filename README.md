@@ -24,7 +24,7 @@ podman pod create --name postgres -p 5432:5432
 
 Add a Postgres instance to the pod:
 ```
-podman run -dt --pod postgres -e POSTGRES_DB=bigleague -e POSTGRES_PASSWORD=password postgres:14
+podman run -dt --pod postgres -e POSTGRES_DB=bigleague -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=password postgres:14
 ```
 
 This will expose Postgres under the default port 5432 for testing and development.
