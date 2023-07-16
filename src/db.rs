@@ -99,6 +99,17 @@ pub struct Score {
     pub points: f32,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Week {
+    pub league_id: String,
+    pub season: i32,
+    pub week: i32,
+    pub home_user: String,
+    pub home_points: f32,
+    pub away_user: String,
+    pub away_points: f32,
+}
+
 pub async fn get_db_con(db_pool: &DBPool) -> DBCon {
     db_pool.get().await.unwrap()
 }
@@ -162,7 +173,7 @@ pub async fn create_tables(db_pool: Arc<DBPool>) -> Result<()>{
         "
         CREATE TABLE IF NOT EXISTS rosters (
             user_id varchar(64) PRIMARY KEY,
-            league_id varchar(64) REFERENCES leagues(id),
+            league_id varchar(64),
             wins integer NOT NULL,
             losses integer NOT NULL,
             ties integer NOT NULL,

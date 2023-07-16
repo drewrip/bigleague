@@ -104,8 +104,39 @@ pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>)
         })
         .collect();
 
+    let season: i32 = db.query("SELECT season FROM state ORDER BY season DESC, week DESC LIMIT 1", &[])
+        .await
+        .unwrap()[0].get(0);
+
+    let matchups_rows = db.query(
+           "
+           SELECT M1.league_id, M1.week, M1.user_id as home_user, M1.points as home_points, M2.user_id as away_user, M2.points as away_points
+           FROM matchups M1, matchups M2
+           WHERE M1.user_id = M2.opponent_id AND M1.opponent_id = M2.user_id AND M1.league_id = M2.league_id AND M1.season = $1 AND M1.user_id = $2
+           ",
+           &[&season, &id]
+        )
+        .await
+        .unwrap();
+
+    let matchups: Vec<db::Week> = matchups_rows
+        .iter()
+        .map(|row| {
+            db::Week {
+                league_id: id.clone(),
+                season: season,
+                week: row.get(1),
+                home_user: row.get(2),
+                home_points: row.get(3),
+                away_user: row.get(4),
+                away_points: row.get(5),
+            } 
+        })
+        .collect();
+
     let mut ctx = Context::new();
     ctx.insert("user", &user);
+    ctx.insert("matchups", &matchups);
     ctx.insert("roster", &roster);
     ctx.insert("players", &players);
     Ok(render("user.html", ctx, tera))
@@ -113,7 +144,7 @@ pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>)
 
 pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
 
-    info!("GET /standings");
+    info!("GET /");
 
     let db = db::get_db_con(&db_pool)
             .await;

@@ -18,7 +18,7 @@
         </div>
     </div>
     <div class="row is-center">
-        <table class="col-11">
+        <table class="col-10">
             <thead>
                 <tr>
                     <th></th>
@@ -46,6 +46,13 @@
             </tr>
             {%- endfor %}
         </table>
+        <div class="col-2">
+            <ul>
+            {% for m in matchups -%}
+            <li>{{ m.home_user }}({{ m.home_points }}) vs. {{ m.away_user }}({{ m.away_points }})</li>
+            {%- endfor %}
+            </ul>
+        </div>
     </div>
     {% include "footer.html" %}
 </html>

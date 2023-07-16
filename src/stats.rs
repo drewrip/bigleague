@@ -33,6 +33,24 @@ pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Res
         },
     };
 
+    for league_id in config.clone().bigleague.leagues {
+        let _ = fetch_rosters(&db_pool, league_id).await;
+    }
+
+    for league_id in config.clone().bigleague.leagues {
+        let _ = fetch_users(&db_pool, league_id).await;
+    }
+
+    for league_id in config.clone().bigleague.leagues {
+        let _ = fetch_leagues(&db_pool, league_id).await;
+    }
+
+    let _ = fetch_state(&db_pool).await;
+
+    for league_id in config.clone().bigleague.leagues {
+        let _ = fetch_matchups(&db_pool, league_id).await;
+    }
+
     let mut rosters_interval = time::interval(
         time::Duration::from_secs(config.stats.rosters_interval)
     );
@@ -370,7 +388,7 @@ pub async fn fetch_matchups(db_pool: &db::DBPool, league_id: String) -> Result<(
         .unwrap();
 
     let season: i32 = 2022;//time[0].get("season");
-    let week: i32 = 12;//time[0].get("week");
+    let week: i32 = 10;//time[0].get("week");
 
     let body = reqwest::get(format!("https://api.sleeper.app/v1/league/{}/matchups/{}", league_id, week))
         .await
