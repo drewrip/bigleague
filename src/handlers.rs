@@ -48,6 +48,13 @@ pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>)
     let db = db::get_db_con(&db_pool)
             .await;
 
+    let current_period = db.query("SELECT season, week FROM state ORDER BY season DESC, week DESC LIMIT 1", &[])
+        .await
+        .unwrap();
+
+    let season: i32 = current_period[0].get("season");
+    let week: i32 = current_period[0].get("week");
+
     let rows = db.query("SELECT * FROM users, rosters WHERE users.id = $1 AND users.id = rosters.user_id", &[&id])
             .await
             .unwrap();
@@ -75,37 +82,99 @@ pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>)
 
     let player_rows = db.query(
         "
-        SELECT * FROM players, ownership
-        WHERE players.id = ownership.player_id AND ownership.user_id = $1 
-        ORDER BY starter DESC,
-        (CASE position
-            WHEN 'QB' THEN 1 
-            WHEN 'RB' THEN 2
-            WHEN 'WR' THEN 3
-            WHEN 'TE' THEN 4
-            WHEN 'K' THEN 5
-            WHEN 'DEF' THEN 6
-            END) ASC
+        SELECT ID,
+            FIRST_NAME,
+            LAST_NAME,
+            TEAM,
+            POSITION,
+            STATUS,
+            STARTER,
+            POINTS
+        FROM PLAYERS,
+            OWNERSHIP,
+            SCORES
+        WHERE PLAYERS.ID = OWNERSHIP.PLAYER_ID
+            AND OWNERSHIP.USER_ID = $1
+            AND SCORES.SEASON = $2
+            AND SCORES.WEEK = $3
+            AND SCORES.PLAYER_ID = PLAYERS.ID
+            AND SCORES.LEAGUE_ID = $4
+        ORDER BY STARTER DESC, (CASE POSITION
+                        WHEN 'QB' THEN 1
+                        WHEN 'RB' THEN 2
+                        WHEN 'WR' THEN 3
+                        WHEN 'TE' THEN 4
+                        WHEN 'K' THEN 5
+                        WHEN 'DEF' THEN 6
+        END) ASC
         ",
-        &[&id]
+        &[&id, &season, &week, &roster.league_id]
     ).await.unwrap();
 
     let players: Vec<db::Player> = player_rows.into_iter()
         .map(|player| {
             db::Player {
-                id: player.get(0),
-                first_name: player.get(1),
-                last_name: player.get(2),
-                team: player.get(3),
-                position: player.get(4),
-                status: player.get(5),
-                starter: player.get(9),
+                id: player.get("id"),
+                first_name: player.get("first_name"),
+                last_name: player.get("last_name"),
+                team: player.get("team"),
+                position: player.get("position"),
+                status: player.get("status"),
+                starter: player.get("starter"),
+                points: player.get("points"),
             }
+        })
+        .collect();
+
+    let matchups_rows = db.query(
+           "
+            SELECT M1.WEEK,
+                M1.USER_ID,
+                U1.NAME AS USER_NAME,
+                U1.AVATAR AS USER_AVATAR,
+                M1.POINTS AS USER_POINTS,
+                M1.OPPONENT_ID,
+                U2.NAME AS OPPONENT_NAME,
+                U2.AVATAR AS OPPONENT_AVATAR,
+                M2.POINTS AS OPPONENT_POINTS
+            FROM MATCHUPS AS M1,
+                MATCHUPS AS M2,
+                USERS AS U1,
+                USERS AS U2
+            WHERE M1.OPPONENT_ID = M2.USER_ID
+                AND M1.WEEK = M2.WEEK
+                AND U1.ID = M1.USER_ID
+                AND U2.ID = M1.OPPONENT_ID
+                AND M1.SEASON = $1
+                AND M1.USER_ID = $2
+           ",
+           &[&season, &id]
+        )
+        .await
+        .unwrap();
+
+    let matchups: Vec<db::Week> = matchups_rows
+        .iter()
+        .map(|row| {
+            db::Week {
+                league_id: id.clone(),
+                season: season,
+                week: row.get("week"),
+                user_id: row.get("user_id"),
+                user_name: row.get("user_name"),
+                user_avatar: row.get("user_avatar"),
+                user_points: row.get("user_points"),
+                opponent_id: row.get("opponent_id"),
+                opponent_name: row.get("opponent_name"),
+                opponent_avatar: row.get("opponent_avatar"),
+                opponent_points: row.get("opponent_points"),
+            } 
         })
         .collect();
 
     let mut ctx = Context::new();
     ctx.insert("user", &user);
+    ctx.insert("matchups", &matchups);
     ctx.insert("roster", &roster);
     ctx.insert("players", &players);
     Ok(render("user.html", ctx, tera))
@@ -113,7 +182,7 @@ pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>)
 
 pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
 
-    info!("GET /standings");
+    info!("GET /");
 
     let db = db::get_db_con(&db_pool)
             .await;

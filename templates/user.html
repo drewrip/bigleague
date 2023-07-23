@@ -8,44 +8,69 @@
                     <img class="user-avatar is-center" src="https://sleepercdn.com/avatars/{{ user.avatar }}" />
                 </div>
                 <div class="col-8 user-stats">
-                    <h3>wins: {{ roster.wins }}</h3>
-                    <h3>losses: {{ roster.losses }}</h3>
-                    <h3>ties: {{ roster.ties }}</h3>
+                    <h2>{{ user.name }}</h2>
+                    <h3>{{ roster.wins }}-{{ roster.losses }}-{{ roster.ties }}</h3>
                     <h3>points for: {{ roster.fpts }}.{{ roster.fpts_decimal }}</h3>
                     <h3>points against: {{ roster.fpts_against }}.{{ roster.fpts_against_decimal }}</h3>
                 </div>
             </div>
         </div>
     </div>
-    <div class="row is-center">
-        <table class="col-11">
-            <thead>
+    <div class="row">
+        <div class="col-7 player-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>name</th>
+                        <th>position</th>
+                        <th>team</th>
+                        <th>status</th>
+                        <th>points</th>
+                    </tr>
+                </thead>
+                {% for p in players -%}
                 <tr>
-                    <th></th>
-                    <th>name</th>
-                    <th>position</th>
-                    <th>team</th>
-                    <th>status</th>
-                    <th>starter</th>
+                    <td>
+                        {% if p.position == "DEF" %}
+                        <img class="user-player-avatar" src="https://sleepercdn.com/images/team_logos/nfl/{{ p.team | lower }}.png" />
+                        {% else %}
+                        <img class="user-player-avatar" src="https://sleepercdn.com/content/nfl/players/{{ p.id }}.jpg" />
+                        {% endif %}
+                    </td>
+                    <td>{{ p.first_name }} {{ p.last_name }}</td>
+                    <td>{{ p.position }}</td>
+                    <td>{{ p.team }}</td>
+                    <td>{{ p.status }}</td>
+                    <td>{{ p.points | round(precision=2)}}</td>
                 </tr>
-            </thead>
-            {% for p in players -%}
-            <tr>
-                <td>
-                    {% if p.position == "DEF" %}
-                    <img class="user-player-avatar" src="https://sleepercdn.com/images/team_logos/nfl/{{ p.team | lower }}.png" />
-                    {% else %}
-                    <img class="user-player-avatar" src="https://sleepercdn.com/content/nfl/players/{{ p.id }}.jpg" />
-                    {% endif %}
-                </td>
-                <td>{{ p.first_name }} {{ p.last_name }}</td>
-                <td>{{ p.position }}</td>
-                <td>{{ p.team }}</td>
-                <td>{{ p.status }}</td>
-                <td>{{ p.starter }}</td>
-            </tr>
-            {%- endfor %}
-        </table>
+                {%- endfor %}
+            </table>
+        </div>
+        <div class="col-5 card matchup-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>week</th>
+                        <th>user</th>
+                        <th>opponent</th>
+                    </tr>
+                </thead>
+                {% for m in matchups -%}
+                <tr>
+                    <td>{{ m.week }}</td>
+                    <td>
+                        <a href="/user/{{ m.user_id }}"><img class="matchup-avatar is-center" src="https://sleepercdn.com/avatars/{{ m.user_avatar }}" /></a>
+                        {{ m.user_name }}({{ m.user_points | round(precision=2)}})
+                    </td>
+                    <td>
+                        <a href="/user/{{ m.opponent_id }}"><img class="matchup-avatar is-center" src="https://sleepercdn.com/avatars/{{ m.opponent_avatar }}" /></a>
+                        {{ m.opponent_name }}({{ m.opponent_points | round(precision=2)}})
+                    </td>
+                </tr>
+                {%- endfor %}
+            </table>
+        </div>
     </div>
     {% include "footer.html" %}
 </html>
