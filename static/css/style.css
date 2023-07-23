@@ -10,6 +10,12 @@
     border-radius: 15rem;
 }
 
+.matchup-avatar {
+    height: 5rem;
+    width: 5rem;
+    border-radius: 5rem;
+}
+
 .user-player-avatar {
     width: 10rem;
     border-radius: 10rem;
@@ -17,6 +23,14 @@
 
 .user-card {
     width: 90vw;
+}
+
+.matchup-card {
+    margin: 1rem;
+}
+
+.player-table {
+    margin: 1rem;
 }
 
 .bl-navbar {

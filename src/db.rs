@@ -61,6 +61,7 @@ pub struct Player {
     pub position: String,
     pub status: String,
     pub starter: i32,
+    pub points: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -104,10 +105,14 @@ pub struct Week {
     pub league_id: String,
     pub season: i32,
     pub week: i32,
-    pub home_user: String,
-    pub home_points: f32,
-    pub away_user: String,
-    pub away_points: f32,
+    pub user_id: String,
+    pub user_name: String,
+    pub user_avatar: String,
+    pub user_points: f32,
+    pub opponent_id: String,
+    pub opponent_name: String,
+    pub opponent_avatar: String,
+    pub opponent_points: f32,
 }
 
 pub async fn get_db_con(db_pool: &DBPool) -> DBCon {
