@@ -36,3 +36,13 @@
 .bl-navbar {
     margin-bottom: 5rem;
 }
+
+.bracket-avatar {
+    height: 5rem;
+    width: 5rem;
+    border-radius: 5rem;
+}
+
+.bracket-list {
+    list-style-type: none;
+}

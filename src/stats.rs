@@ -130,7 +130,7 @@ pub async fn fetch_rosters(db_pool: &db::DBPool, league_id: String) -> Result<()
         .await
         .unwrap();
 
-    let roster_list: Vec<Value> = serde_json::from_str(&body).unwrap();
+    let roster_list: Vec<Value> = serde_json::from_str(&body).expect("Couldn't parse request");
 
     // This is really ugly, should improve the deserialization later
     for r in roster_list {
@@ -388,7 +388,7 @@ pub async fn fetch_matchups(db_pool: &db::DBPool, league_id: String) -> Result<(
         .unwrap();
 
     let season: i32 = 2022;//time[0].get("season");
-    let week: i32 = 10;//time[0].get("week");
+    let week: i32 = 12;//time[0].get("week");
 
     let body = reqwest::get(format!("https://api.sleeper.app/v1/league/{}/matchups/{}", league_id, week))
         .await

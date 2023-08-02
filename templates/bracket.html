@@ -1,0 +1,18 @@
+{% if bracket.num_teams > 0 %} {# Skip showing bracket if there are no teams #}
+<div class="row">
+    {% for stage in bracket.stages -%}
+    <div class="col">
+        <ul class="bracket-list">
+            <h3>Week {{ bracket.start_week + loop.index0 }}</h3>
+        {% for team in stage -%}
+            <li>
+                <div>
+                    ({{ team.rank }}) - <img class="bracket-avatar" src="https://sleepercdn.com/avatars/{{ team.user.avatar }}" /><a href="/user/{{ team.user.id }}">{{ team.user.name }}</a>: {{ team.points | round(precision=2)}}
+                </div>
+            </li>
+        {%- endfor %}
+        </ul>
+    </div>
+    {%- endfor %}
+</div>
+{% endif %}
