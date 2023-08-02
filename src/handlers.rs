@@ -2,9 +2,10 @@ use tera::{Tera, Context};
 use warp::{Reply, Rejection};
 use tokio_postgres::row::Row;
 use std::sync::Arc;
-use log::info;
+use log::{info, error};
 
 use crate::db;
+use crate::config;
 
 fn render(template: &str, ctx: Context, tera: Arc<Tera>) -> impl Reply {
     let render = tera.render(template, &ctx).unwrap();
@@ -180,21 +181,41 @@ pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>)
     Ok(render("user.html", ctx, tera))
 }
 
-pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>) -> std::result::Result<impl Reply, Rejection> {
+pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>, config: config::Config) -> std::result::Result<impl Reply, Rejection> {
 
     info!("GET /");
 
     let db = db::get_db_con(&db_pool)
             .await;
 
+    let current_period = db.query("SELECT season, week FROM state ORDER BY season DESC, week DESC LIMIT 1", &[])
+        .await
+        .unwrap();
+
+    let season: i32 = current_period[0].get("season");
+    let week: i32 = current_period[0].get("week");
+
     let rows = db.query("SELECT * FROM users, rosters, leagues, ranks WHERE users.id = rosters.user_id AND leagues.id = rosters.league_id AND ranks.user_id = users.id", &[])
         .await
         .unwrap();
 
     let standings = collect_standings(rows);
+    let bracket = match db::get_bracket(db, config).await {
+        Ok(b) => b,
+        Err(e) => {
+            error!("Couldn't get bracket: {}", e);
+            db::Bracket {
+                num_teams: 0,
+                start_week: 0,
+                champ_week: 0,
+                stages: vec![],
+            }
+        }
+    };
 
     let mut ctx = Context::new();
     ctx.insert("standings", &standings);
+    ctx.insert("bracket", &bracket);
     Ok(render("standings.html", ctx, tera))
 }
 

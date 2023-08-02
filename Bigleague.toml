@@ -1,6 +1,6 @@
 [web]
-ip = "127.0.0.1"
-port = 8000
+ip = "0.0.0.0"
+port = 6543
 
 [stats]
 rosters_interval = 3000
@@ -24,5 +24,14 @@ timeout = 15
 
 [bigleague]
 leagues = []
-playoff_teams = 8
-playoff_start_week = 14
+playoffs_start_week = 10
+playoffs_championship_week = 12
+
+# Only one of the following playoff options are supported
+
+# Gives bids to the top teams regardless of which league they are in
+playoffs_at_large = { bids = 4 }
+
+# Gives bids to the top n teams in each league
+# This is currently unsupported!
+playoffs_per_league = { bids_per_league = 2 }

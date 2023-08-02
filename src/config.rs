@@ -31,10 +31,22 @@ pub struct Database {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AtLarge {
+    pub bids: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PerLeague {
+    pub bids_per_league: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Bigleague {
     pub leagues: Vec<String>,
-    pub playoff_teams: i32,
-    pub playoff_start_week: i32,
+    pub playoffs_start_week: i32,
+    pub playoffs_championship_week: i32,
+    pub playoffs_at_large: Option<AtLarge>,
+    pub playoffs_per_league: Option<PerLeague>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

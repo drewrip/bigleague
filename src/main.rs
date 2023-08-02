@@ -14,6 +14,10 @@ fn with_tera(tera: Arc<Tera>) -> impl Filter<Extract = (Arc<Tera>,), Error = Inf
     warp::any().map(move || tera.clone())
 }
 
+fn with_config(config: config::Config) -> impl Filter<Extract = (config::Config,), Error = Infallible> + Clone {
+    warp::any().map(move || config.clone())
+}
+
 #[tokio::main]
 async fn main() {
 
@@ -48,6 +52,7 @@ async fn main() {
     let standings_route = warp::path::end()
         .and(db::with_db(pool.clone()))
         .and(with_tera(tera.clone()))
+        .and(with_config(config.clone()))
         .and_then(handlers::standings_handler);
 
     let not_found_route = warp::any()
