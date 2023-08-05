@@ -1,12 +1,13 @@
 use reqwest;
 use serde_json::Value;
-use crate::db;
 use std::convert::Infallible;
 use std::error::Error;
 use tokio::time;
 use std::sync::Arc;
 use log::{info, warn};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+
+use crate::model::db;
 
 use crate::config;
 
@@ -113,8 +114,6 @@ pub async fn stats_loop(config: config::Config, db_pool: Arc<db::DBPool>) -> Res
             }
         }    
     }
-
-    Ok(())
 }
 
 pub async fn fetch_rosters(db_pool: &db::DBPool, league_id: String) -> Result<(), Infallible> {

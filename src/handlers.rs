@@ -4,7 +4,9 @@ use tokio_postgres::row::Row;
 use std::sync::Arc;
 use log::{info, error};
 
-use crate::db;
+use crate::model::types::{League, User, Roster, Player, Bracket, Week, Standing};
+use crate::model::db;
+use crate::model::util;
 use crate::config;
 
 fn render(template: &str, ctx: Context, tera: Arc<Tera>) -> impl Reply {
@@ -24,7 +26,7 @@ pub async fn league_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera
             .await
             .unwrap();
 
-    let league = db::League {
+    let league = League {
         id: rows[0].get(0),
         name: rows[0].get(1),
         avatar: rows[0].get(2),
@@ -62,13 +64,13 @@ pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>)
 
     let row = &rows[0];
 
-    let user = db::User {
+    let user = User {
         id: row.get(0),
         name: row.get(1),
         avatar: row.get(2),
     };
 
-    let roster = db::Roster {
+    let roster = Roster {
         user_id: row.get(3),
         league_id: row.get(4),
         wins: row.get(5),
@@ -112,9 +114,9 @@ pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>)
         &[&id, &season, &week, &roster.league_id]
     ).await.unwrap();
 
-    let players: Vec<db::Player> = player_rows.into_iter()
+    let players: Vec<Player> = player_rows.into_iter()
         .map(|player| {
-            db::Player {
+            Player {
                 id: player.get("id"),
                 first_name: player.get("first_name"),
                 last_name: player.get("last_name"),
@@ -154,10 +156,10 @@ pub async fn user_handler(id: String, db_pool: Arc<db::DBPool>, tera: Arc<Tera>)
         .await
         .unwrap();
 
-    let matchups: Vec<db::Week> = matchups_rows
+    let matchups: Vec<Week> = matchups_rows
         .iter()
         .map(|row| {
-            db::Week {
+            Week {
                 league_id: id.clone(),
                 season: season,
                 week: row.get("week"),
@@ -200,11 +202,11 @@ pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>, config
         .unwrap();
 
     let standings = collect_standings(rows);
-    let bracket = match db::get_bracket(db, config).await {
+    let bracket = match util::get_bracket(db, config).await {
         Ok(b) => b,
         Err(e) => {
             error!("Couldn't get bracket: {}", e);
-            db::Bracket {
+            Bracket {
                 num_teams: 0,
                 start_week: 0,
                 champ_week: 0,
@@ -219,16 +221,16 @@ pub async fn standings_handler(db_pool: Arc<db::DBPool>, tera: Arc<Tera>, config
     Ok(render("standings.html", ctx, tera))
 }
 
-fn collect_standings(rows: Vec<Row>) -> Vec<db::Standing> {
+fn collect_standings(rows: Vec<Row>) -> Vec<Standing> {
     rows.into_iter()
         .map(|row| {
-            let user = db::User {
+            let user = User {
                 id: row.get(0),
                 name: row.get(1),
                 avatar: row.get(2),
             };
 
-            let roster = db::Roster {
+            let roster = Roster {
                 user_id: row.get(3),
                 league_id: row.get(4),
                 wins: row.get(5),
@@ -241,7 +243,7 @@ fn collect_standings(rows: Vec<Row>) -> Vec<db::Standing> {
                 roster_id: row.get(12),
             };
           
-            let league = db::League {
+            let league = League {
                 id: row.get(13),
                 name: row.get(14),
                 avatar: row.get(15),
@@ -249,7 +251,7 @@ fn collect_standings(rows: Vec<Row>) -> Vec<db::Standing> {
 
             let rank: i64 = row.get(17);
 
-            db::Standing {
+            Standing {
                 user,
                 roster,
                 league,

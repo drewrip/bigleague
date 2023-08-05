@@ -3,9 +3,9 @@ use warp::Filter;
 use std::sync::Arc;
 use std::convert::Infallible;
 use std::net::{IpAddr, Ipv4Addr};
-use log::{debug, error, info, warn};
+use log::{info, warn};
 
-mod db;
+mod model;
 mod stats;
 mod handlers;
 mod config;
@@ -25,9 +25,9 @@ async fn main() {
 
     let config: config::Config = config::read_config("Bigleague.toml").expect("Couldn't parse config file"); 
 
-    let pool = Arc::new(db::create_pool(config.clone()).unwrap());
+    let pool = Arc::new(model::db::create_pool(config.clone()).unwrap());
  
-    db::create_tables(pool.clone()).await.unwrap();
+    model::db::create_tables(pool.clone()).await.unwrap();
     
     let stats_pool = pool.clone();
     let stats_config = config.clone();
@@ -40,17 +40,17 @@ async fn main() {
     let tera: Arc<Tera> = Arc::new(tera);
 
     let league_route = warp::path!("league" / String)
-        .and(db::with_db(pool.clone()))
+        .and(model::db::with_db(pool.clone()))
         .and(with_tera(tera.clone()))
         .and_then(handlers::league_handler);
 
     let user_route = warp::path!("user" / String)
-        .and(db::with_db(pool.clone()))
+        .and(model::db::with_db(pool.clone()))
         .and(with_tera(tera.clone()))
         .and_then(handlers::user_handler);
 
     let standings_route = warp::path::end()
-        .and(db::with_db(pool.clone()))
+        .and(model::db::with_db(pool.clone()))
         .and(with_tera(tera.clone()))
         .and(with_config(config.clone()))
         .and_then(handlers::standings_handler);
